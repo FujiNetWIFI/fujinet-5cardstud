@@ -5,7 +5,8 @@
  * @license gpl v. 3
  */
 
-#include "../fujinet-fuji.h"
+#include <fujinet-fuji.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 

@@ -1,6 +1,6 @@
 PRODUCT = fcs
 #PLATFORMS = coco apple2 atari c64 adam msdos msxrom adam_cpm
-PLATFORMS = msdos
+PLATFORMS = msdos apple2
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
@@ -31,6 +31,8 @@ PLATFORM_COMBOS = \
   adam_cpm+=adam
 
 CFLAGS_EXTRA_MSDOS = -q -otexan
+
+LDFLAGS_EXTRA_APPLE2 = -C src/apple2/apple2-hgr.cfg
 
 include mekkogx/toplevel-rules.mk
 

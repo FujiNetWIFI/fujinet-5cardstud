@@ -8,8 +8,8 @@
 #include <conio.h>
 #include <stdbool.h>
 #include "../platform-specific/appkey.h"
-#include "../fujinet-fuji.h"
-#include "../fujinet-network.h"
+#include <fujinet-fuji.h>
+#include <fujinet-network.h>
 #include <stdio.h>
 #include "../misc.h"
 
