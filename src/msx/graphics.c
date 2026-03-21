@@ -8,8 +8,24 @@
 #ifdef BUILD_MSX
 
 #include <stdbool.h>
+#include <video/tms99x8.h>
+#include <conio.h>
+#include <sys/ioctl.h>
+#include "udg.h"
 
 bool always_render_full_cards = 0;
+
+/**
+ * @brief Initialize graphics mode; set palette.
+ */
+void initGraphics()
+{
+    void *param = &udg;
+    vdp_set_mode(2);
+    console_ioctl(IOCTL_GENCON_SET_UDGS,&param);
+    vdp_color(VDP_INK_BLACK,VDP_INK_DARK_GREEN,VDP_INK_DARK_GREEN);
+    clrscr();
+}
 
 void drawChip(unsigned char x, unsigned char y)
 {
@@ -56,10 +72,6 @@ void drawStatusText(const char* s)
 }
 
 void drawStatusTextAt(unsigned char x, const char* s)
-{
-}
-
-void initGraphics()
 {
 }
 

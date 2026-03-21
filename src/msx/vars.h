@@ -8,6 +8,7 @@
 #define WIDTH 32
 #define HEIGHT 24
 
+#define SINGLE_BUFFER 1
 
 /**
  * Platform specific key map for common input
@@ -69,4 +70,3 @@ extern char playerCountIndex[];
 #endif /* KEYMAP_H */
 
 #endif /* BUILD_MSX */
-
