@@ -75,8 +75,7 @@ void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char ke
     r.h.dl = 0x40;
     r.h.al = 0x70;
     r.h.ah = 0xDD;
-    r.x.cx = 64;
-    r.x.si = 0x0000;
+    r.h.dh = 0;
     sr.es = FP_SEG(data);
     r.x.bx = FP_OFF(data);
     r.x.di = 64;
@@ -95,8 +94,7 @@ void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char k
     r.h.dl = 0x80;
     r.h.al = 0x70;
     r.h.ah = 0xDE;
-    r.x.cx = 64;
-    r.x.si = 0x0000;
+    r.h.dh = 0;
     sr.es = FP_SEG(data);
     r.x.bx = FP_OFF(data);
     r.x.di = 64;

@@ -40,21 +40,21 @@ uint8_t getResponse(char *url, unsigned char *buffer, uint16_t max_len)
 
     memset(&r,0,sizeof(union REGS));
     memset(&sr,0,sizeof(struct SREGS));
-    
+
     // Open
     r.h.dl = 0x80; // write
     r.h.al = 0x71; // Network device 1
     r.h.ah = 'O';  // open
+    r.h.dh = 2;
     r.h.cl = 0x0c; // GET
     r.h.ch = 0x00; // No translation
-    r.x.si = 0x0000; // aux3/4 not used
     sr.es = FP_SEG(buf);
     r.x.bx = FP_OFF(buf);
     r.x.di = sizeof(buf);
     int86x(0xF5,&r,&r,&sr);
 
     delay(250);
-    
+
     memset(&r,0,sizeof(union REGS));
     memset(&sr,0,sizeof(struct SREGS));
 
@@ -62,16 +62,16 @@ uint8_t getResponse(char *url, unsigned char *buffer, uint16_t max_len)
     r.h.dl = 0x40; // Read
     r.h.al = 0x71; // Network device 1;
     r.h.ah = 'S';  // Status
+    r.h.dh = 2;
     r.h.cl = 0x00; // Get
     r.h.ch = 0x00; // No translation
-    r.x.si = 0x0000; // Not used
     sr.es = FP_SEG(&s);
     r.x.bx = FP_OFF(&s);
     r.x.di = sizeof(s);
     int86x(0xF5,&r,&r,&sr);
 
     delay(250);
-    
+
     memset(&r,0,sizeof(union REGS));
     memset(&sr,0,sizeof(struct SREGS));
 
@@ -79,15 +79,15 @@ uint8_t getResponse(char *url, unsigned char *buffer, uint16_t max_len)
     r.h.dl = 0x40; // Read
     r.h.al = 0x71; // Network Device 1
     r.h.ah = 'R';  // Read
+    r.h.dh = 5;
     r.x.cx = s.bw; // # of bytes to read
-    r.x.si = 0x0000; // Not used
     sr.es = FP_SEG(buffer);
     r.x.bx = FP_OFF(buffer);
     r.x.di = s.bw; // # of bytes to read
     int86x(0xF5,&r,&r,&sr);
 
     delay(250);
-    
+
     memset(&r,0,sizeof(union REGS));
     memset(&sr,0,sizeof(struct SREGS));
 
@@ -95,12 +95,11 @@ uint8_t getResponse(char *url, unsigned char *buffer, uint16_t max_len)
     /* r.h.dl = 0x00; // None */
     /* r.h.al = 0x71; // Network Device 1 */
     /* r.h.ah = 'C';  // Close */
-    /* r.x.cx = 0x0000; // Not used */
-    /* r.x.si = 0x0000; // Not used */
+    /* r.h.dh = 0; */
     /* int86x(0xF5,&r,&r,&sr); */
 
     /* delay(250); */
-    
+
     memset(&r,0,sizeof(union REGS));
     memset(&sr,0,sizeof(struct SREGS));
 
