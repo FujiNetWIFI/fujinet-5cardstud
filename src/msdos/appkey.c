@@ -50,9 +50,7 @@ unsigned char open_appkey(unsigned char open_mode, unsigned int creator_id, unsi
     r.h.dl = 0x80;
     r.h.al = 0x70;
     r.h.ah = 0xDC;
-    r.h.cl = 0x00;
-    r.x.cx = 0x00;
-    r.x.si = 0x0000;
+    r.h.dh = 0;
     sr.es = FP_SEG(&appkey);
     r.x.bx = FP_OFF(&appkey);
     r.x.di = sizeof(appkey);
@@ -80,6 +78,7 @@ void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char ke
     r.x.bx = FP_OFF(data);
     r.x.di = 64;
     int86x(0xF5,&r,&r,&sr);
+    memmove(data, data+2, 64);
 }
 
 void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, const char *data)
