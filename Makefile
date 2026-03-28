@@ -3,7 +3,7 @@ PRODUCT = fcs
 #plus4 also works, but needs fujinet-lib
 #PLATFORMS = msdos apple2 c64 coco
 #MSX ROM still in development
-PLATFORMS = msxrom
+PLATFORMS = msxrom msdos
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
