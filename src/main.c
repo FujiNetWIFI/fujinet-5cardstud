@@ -38,7 +38,11 @@ ClientState clientState;
 
 
 // State helper vars
+#ifdef __WATCOMC__
+int inputKey;
+#else
 char inputKey;
+#endif
 unsigned char playerCount, prevPlayerCount, validMoveCount, prevRound, tableCount, currentCard, cardIndex, xOffset, fullFirst, cursorX, cursorY, waitCount, wasViewing;
 signed char inputDirX, inputDirY;
 uint16_t prevPot, maxJifs;
