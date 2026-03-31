@@ -105,7 +105,11 @@ typedef union {
 } ClientState;
 
 
+#ifdef __WATCOMC__
+extern int inputKey;
+#else
 extern char inputKey;
+#endif
 extern unsigned char prevPlayerCount, prevRound, currentCard, cardIndex, xOffset, fullFirst, cursorX, cursorY, waitCount, wasViewing;
 extern signed char inputDirX, inputDirY;
 

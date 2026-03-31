@@ -1,6 +1,7 @@
 #include <dos.h>
 #include <i86.h>
 #include <stdlib.h>
+#include <time.h>
 
 extern unsigned char oldmode;
 
@@ -39,15 +40,14 @@ char playerCountIndex[] = {0,4,0,0,0,0,0,0, 0,2,6,0,0,0,0,0, 0,2,4,6,0,0,0,0,
 // }
 
 
-unsigned int jiffieTimer;
+static clock_t startClock;
 
 void resetTimer() {
-  jiffieTimer=0;
+  startClock = clock();
 }
 
 int getTime() {
-  jiffieTimer+=3;
-  return jiffieTimer;
+  return (int)((clock() - startClock) * 60 / CLOCKS_PER_SEC);
 }
 
 void quit()
