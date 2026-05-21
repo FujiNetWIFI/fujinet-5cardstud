@@ -6,6 +6,7 @@
 #include "coco_bool.h"
 
 #include "hires.h"
+#include "vars.h"
 #include "../platform-specific/graphics.h"
 #include "../misc.h"
 
@@ -15,14 +16,15 @@
 #define DISPLAYED_CARD_COL  14
 #define DISPLAYED_CARD_ROW  48
 
-#ifdef COCO3 
+#ifdef COCO3
 #define CORNER_TOP 0
 #define CORNER_BOTTOM 140
-#define STATUS_BLANK 0b10101010
+/* Status text sits directly on the felt like the Atari port; no bar. */
+#define STATUS_BLANK 0
 #define COCO3_ADJUST_Y y++;
 #else
 #define CORNER_TOP -5
-#define CORNER_BOTTOM 144 
+#define CORNER_BOTTOM 144
 #define STATUS_BLANK 0
 #define COCO3_ADJUST_Y
 #endif
@@ -50,11 +52,23 @@
 #define RED_RIGHT 0b01010100
 
 extern uint8_t charset[];
+#ifdef COCO3
+uint8_t paletteBackup[16];
+#else
 uint8_t paletteBackup[8];
+#endif
 
 bool always_render_full_cards = 0;
 uint8_t xor_mask=0;
 uint8_t font_shift=0;
+#ifdef COCO3
+/* When set, hires_Draw recolours card-back glyphs via card_back_map.
+   CARD_BACK() is a no-op on CoCo 1/2, which has no extended palette. */
+uint8_t card_back = 0;
+#define CARD_BACK(on) card_back = (on)
+#else
+#define CARD_BACK(on)
+#endif
 
 // Currently this is only for CoCo3
 unsigned char colorMode=0;
@@ -165,27 +179,12 @@ void drawChip(unsigned char x, unsigned char y) {
 // Call to clear the screen to an empty table
 void resetScreen() {
     uint8_t i;
-    
-#ifdef COCO3
-    
-    // Clear top and bottom 
-    memset((uint8_t *)SCREEN, 0, WIDTH * 3);
-    memset((uint8_t *)SCREEN+WIDTH*176, 0, WIDTH * 3);
 
-    SCREEN[0]         = 0b10100000;
-    SCREEN[WIDTH*1]   = 0b10000000;
-    SCREEN[WIDTH*2]   = 0b10000000;
-    SCREEN[WIDTH*178] = 0b10100000;
-    SCREEN[WIDTH*177] = 0b10000000;
-    SCREEN[WIDTH*176] = 0b10000000;
-    
-    SCREEN[39+0]         = 0b00001010;
-    SCREEN[39+WIDTH*1]   = 0b00000010;
-    SCREEN[39+WIDTH*2]   = 0b00000010;
-    SCREEN[39+WIDTH*178] = 0b00001010;
-    SCREEN[39+WIDTH*177] = 0b00000010;
-    SCREEN[39+WIDTH*176] = 0b00000010;
-    memset((uint8_t *)SCREEN+WIDTH*3, 0, WIDTH * 173);
+#ifdef COCO3
+    /* Clear all 192 game scanlines via Task 1; the wavy table-edge
+       decorations from the old 2bpp build are handled by drawBorder()
+       later in Phase 2e. */
+    hires_Mask(0, 0, WIDTH, HEIGHT * 8, 0);
 #else
     memset((uint8_t *)SCREEN, 0, WIDTH * 179);
 #endif
@@ -198,18 +197,22 @@ void drawCardAt(unsigned char x, unsigned char y, unsigned char partial, const c
   mid = 0x1213;
 
   if (partial == PARTIAL_LEFT) {
-    hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x01<<3)+4]);
+    CARD_BACK(1);
+    hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x01 CHAR_SHIFT) + CHAR_ROW(4)]);
     hires_putc(x,y+=8,0 ,0x5f);
     hires_putc(x,y+=8,0 ,0x5f);
-    hires_Draw(x,y+=8,6,0,&charset[(uint16_t)((0x5f)<<3)]);
-    hires_Draw(x,y+=5,5,0,&charset[(uint16_t)0x03<<3]);
+    hires_Draw(x,y+=8,6,0,&charset[(uint16_t)((0x5f) CHAR_SHIFT)]);
+    hires_Draw(x,y+=5,5,0,&charset[(uint16_t)0x03 CHAR_SHIFT]);
+    CARD_BACK(0);
   } else if (partial == PARTIAL_RIGHT) {
     ++x;
-    hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x02<<3)+4]);
+    CARD_BACK(1);
+    hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x02 CHAR_SHIFT) + CHAR_ROW(4)]);
     hires_putc(x,y+=8,0 ,0x1f);
     hires_putc(x,y+=8,0 ,0x1f);
-    hires_Draw(x,y+=8,6,0,&charset[(uint16_t)((0x1F)<<3)]);
-    hires_Draw(x,y+=5,5,0,&charset[(uint16_t)0x04<<3]);
+    hires_Draw(x,y+=8,6,0,&charset[(uint16_t)((0x1F) CHAR_SHIFT)]);
+    hires_Draw(x,y+=5,5,0,&charset[(uint16_t)0x04 CHAR_SHIFT]);
+    CARD_BACK(0);
   } else { // Full card
 
     switch (s[1]) {
@@ -222,21 +225,22 @@ void drawCardAt(unsigned char x, unsigned char y, unsigned char partial, const c
 
 
     if (s[0]=='?') {
-      // Overturned card
-
+      // Overturned card: diagonal pattern back (chars 0x1e/0x1f).
+      CARD_BACK(1);
       // Top edge
-      hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x01<<3)+5]);
-      hires_Draw(x+1,y+5,4,0,&charset[(uint16_t)(0x02<<3)+5]);
+      hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x01 CHAR_SHIFT) + CHAR_ROW(5)]);
+      hires_Draw(x+1,y+5,4,0,&charset[(uint16_t)(0x02 CHAR_SHIFT) + CHAR_ROW(5)]);
 
       // Middle
       hires_putcc(x,y+=8,0 ,0x1e1f);
       hires_putcc(x,y+=8,0 ,0x1e1f);
-      hires_Draw(x,y+=8,7,0,&charset[(uint16_t)((0x1E)<<3)]);
-      hires_Draw(x+1,y,7,0,&charset[(uint16_t)((0x1F)<<3)]);
+      hires_Draw(x,y+=8,7,0,&charset[(uint16_t)((0x1E) CHAR_SHIFT)]);
+      hires_Draw(x+1,y,7,0,&charset[(uint16_t)((0x1F) CHAR_SHIFT)]);
 
       // Bottom edge
-      hires_Draw(x,y+=6,4,0,&charset[(uint16_t)(0x03<<3)]);
-      hires_Draw(x+1,y,4,0,&charset[(uint16_t)(0x04<<3)]);
+      hires_Draw(x,y+=6,4,0,&charset[(uint16_t)(0x03 CHAR_SHIFT)]);
+      hires_Draw(x+1,y,4,0,&charset[(uint16_t)(0x04 CHAR_SHIFT)]);
+      CARD_BACK(0);
 
       // Since a full overturned card is being drawn, we may have just folded.
       // Blank out the rest of the hand by it (since no double buffer is used to clear screen)
@@ -260,6 +264,26 @@ void drawCardAt(unsigned char x, unsigned char y, unsigned char partial, const c
 
       // Card left edge
       if (x>0) {
+#ifdef COCO3
+        /* 4bpp: each char cell is BPC bytes wide; the left edge of a
+           card at column x is the RIGHT pixel of the last byte of cell
+           (x-1). Set its low nibble to colour 2 (black). */
+        if (x==WIDTH-3) {
+            /* At this position the hidden card to the right needs
+               clearing - same as the original WIDTH==40 path. */
+            hires_Mask(x+1,y+1,1,28,0);
+        }
+
+        pos = (uint8_t *)SCREEN + (uint16_t)(y+6) * STRIDE + (uint16_t)x * BPC - 1;
+        BEGIN_GFX;
+        if ((*pos & 0x0F) == 0) {
+            for(i=24;i<255;--i) {
+                *pos = (*pos & 0xF0) | 0x02;
+                pos += STRIDE;
+            }
+        }
+        END_GFX;
+#else
         pos = (uint8_t *)SCREEN+(uint16_t)(y+6)*WIDTH+x-1;
 
         // Handle special cases for right side of screen
@@ -279,33 +303,34 @@ void drawCardAt(unsigned char x, unsigned char y, unsigned char partial, const c
             *(pos) += 02;
             pos+=WIDTH;
           }
-        }      
-        else if (*(pos+WIDTH*2)==173) { 
+        }
+        else if (*(pos+WIDTH*2)==173) {
           // Make first downturned card slightly smaller for left side
           drawCardAt(x-1,y, PARTIAL_LEFT, "??", 0);
-        }    
+        }
+#endif
       }
 
       xor_mask = isHidden;
       // Top edge
-      hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x05<<3)+5]);
-      hires_Draw(x+1,y+5,4,0,&charset[(uint16_t)(0x06<<3)+5]);
+      hires_Draw(x,y+5,4,0,&charset[(uint16_t)(0x05 CHAR_SHIFT) + CHAR_ROW(5)]);
+      hires_Draw(x+1,y+5,4,0,&charset[(uint16_t)(0x06 CHAR_SHIFT) + CHAR_ROW(5)]);
 
       // Card value
       hires_putc(x,y+=8, red ,val);
       hires_putc(x+1,y,  redR,rightDigit);
 
       // Middle
-      hires_Draw(x,y+=8,7,0,&charset[(uint16_t)((mid >> 8 & 0xFF)<<3)]);
-      hires_Draw(x+1,y,7,0,&charset[(uint16_t)((mid & 0xFF)<<3)]);
+      hires_Draw(x,y+=8,7,0,&charset[(uint16_t)((mid >> 8 & 0xFF) CHAR_SHIFT)]);
+      hires_Draw(x+1,y,7,0,&charset[(uint16_t)((mid & 0xFF) CHAR_SHIFT)]);
 
       // Suit
       hires_putc(x,y+=6,0 ,suit);
       hires_putc(x+1,y, 0,++suit);
 
       // Bottom edge
-      hires_Draw(x,y+=8,4,0,&charset[(uint16_t)0x07<<3]);
-      hires_Draw(x+1,y,4,0,&charset[(uint16_t)0x08<<3]);
+      hires_Draw(x,y+=8,4,0,&charset[(uint16_t)0x07 CHAR_SHIFT]);
+      hires_Draw(x+1,y,4,0,&charset[(uint16_t)0x08 CHAR_SHIFT]);
       xor_mask = 0;
 
       // If drawing the full hand on the left side, shift the rendered cards to the right one pixel
@@ -454,8 +479,8 @@ void resetGraphics() {
   waitvsync();
 
 #ifdef COCO3
-  // Restore palette/screen width
-  memcpy((byte *) 0xFFB0, &paletteBackup, 8);
+  /* Restore all 16 palette entries that rgbOrComposite() saved. */
+  memcpy((byte *) 0xFFB0, &paletteBackup, 16);
   width(32);
 #endif
 
@@ -464,92 +489,157 @@ void resetGraphics() {
 }
 
 
+#ifdef COCO3
+/* Task 1 MMU map - low half mirrors Task 0 so the running program is
+   still reachable after the task swap; the high half exposes blocks
+   0x34-0x37 as a 32 KB framebuffer at $8000-$FFFF. */
+static const unsigned char task1MMUBlocks[8] = {
+    0x38, 0x39, 0x3A, 0x3B,
+    0x34, 0x35, 0x36, 0x37
+};
+#endif
+
+/* setRGB / setComposite load the 16-entry palette for each output type;
+   updateColors() picks one based on colorMode. */
 void setRGB()
 {
 #ifdef COCO3
-    rgb();
-    
-    paletteRGB(0,0,2,1);   // Background
-    paletteRGB(1,3,3,3);   // card bkg
-    paletteRGB(2,0,0,0);   // border/text
-    paletteRGB(3,2,0,0);
+    /* RGB encoding (RrGgBb); entries 0-3 are the pmode3 charset colours. */
+    *(byte *)0xFFB0 = 18;   /* 0  green felt   */
+    *(byte *)0xFFB1 = 63;   /* 1  white        */
+    *(byte *)0xFFB2 = 0;    /* 2  black        */
+    *(byte *)0xFFB3 = 36;   /* 3  red          */
+    *(byte *)0xFFB4 = 52;   /* 4  orange       */
+    *(byte *)0xFFB5 = 54;   /* 5  yellow       */
+    *(byte *)0xFFB6 = 4;    /* 6  dark red     */
+    *(byte *)0xFFB7 = 27;   /* 7  light foam   */
+    *(byte *)0xFFB8 = 7;    /* 8  dark gray    */
+    *(byte *)0xFFB9 = 56;   /* 9  light gray   */
+    *(byte *)0xFFBA = 28;   /* 10 teal         */
+    *(byte *)0xFFBB = 9;    /* 11 sea blue     */
+    *(byte *)0xFFBC = 11;   /* 12 light blue   */
+    *(byte *)0xFFBD = 1;    /* 13 dark blue    */
+    *(byte *)0xFFBE = 25;   /* 14 foam         */
+    *(byte *)0xFFBF = 38;   /* 15 red orange   */
 #endif
 }
 
 void setComposite()
 {
 #ifdef COCO3
-    cmp();
-    palette(0,30);  // Background
-    palette(1,63);  // card background - white
-    palette(2,0);   // black
-    palette(3,6);  // red
+    /* Composite encoding (luminance + chroma) of the same 16 colours. */
+    *(byte *)0xFFB0 = 30;   /* 0  green felt   */
+    *(byte *)0xFFB1 = 63;   /* 1  white        */
+    *(byte *)0xFFB2 = 0;    /* 2  black        */
+    *(byte *)0xFFB3 = 6;    /* 3  red          */
+    *(byte *)0xFFB4 = 9;    /* 4  orange-ish   */
+    *(byte *)0xFFB5 = 11;   /* 5  yellow-ish   */
+    *(byte *)0xFFB6 = 5;    /* 6  dark red     */
+    *(byte *)0xFFB7 = 31;   /* 7  light foam   */
+    *(byte *)0xFFB8 = 16;   /* 8  dark gray    */
+    *(byte *)0xFFB9 = 48;   /* 9  light gray   */
+    *(byte *)0xFFBA = 26;   /* 10 teal         */
+    *(byte *)0xFFBB = 23;   /* 11 sea blue     */
+    *(byte *)0xFFBC = 21;   /* 12 light blue   */
+    *(byte *)0xFFBD = 22;   /* 13 dark blue    */
+    *(byte *)0xFFBE = 28;   /* 14 foam         */
+    *(byte *)0xFFBF = 7;    /* 15 red orange   */
 #endif
 }
 
 void rgbOrComposite() {
 #ifdef COCO3
     if (!isCoCo3)
-        return; // not a coco3, we can't change palettes anyway.
-    
-    // Backup palette
-    memcpy(&paletteBackup, (byte *) 0xFFB0, 8);
+        return;
 
-    asm { sync } // wait for v-sync to change the graphics mode
-    
-    // Allow border color by switching to CoCo 3 graphics mode verison of PMODE 3:
-    *(byte *)0xFF90 = 0x4C;           // reset CoCo 2 compatible bit
-    *(byte *)0xFF98 = 0x80;           // graphics mode
-    *(byte *)0xFF9A = 0;   // make border black
-    
-    // GIME graphics mode register bits
-    // .XX..... : Scan Lines : 0=192, 1=200, 3=225
-    // ...XXX.. : Bytes/row  : 0=16, 1=20, 2=32, 3=40, 4=64, 5=80, 6=128, 7=160
-    // ......XX : Pixels/byte: 0=8 (2 color), 1=4 (4 color), 2=2 (16 colors)
-    *(byte *)0xFF99 = 0b00001101;     // 160x192x4 colors - 40x24 characters
-    
-    // Tell GIME the location of the screen, 0x6000, which by default is mapped to 0x3B by MMU.
-    *(uint16_t *)0xFF9D = 0x3B << 10;
-    
-    if (colorMode==0) {
-        drawTextAt(8,96,"R-GB or C-OMPOSITE");
+    memcpy(&paletteBackup, (byte *) 0xFFB0, 16);
 
-        while (!colorMode)
-        {
-            switch(cgetc())
-            {
-            case 'R':
-            case 'r':
-                colorMode = 1;
-                break;
-            case 'C':
-            case 'c':
-                colorMode = 2;
-                break;
+    /* Set up Task 1 MMU: program/stack visible at $0000-$7FFF, framebuffer
+       at $8000-$FFFF. */
+    memcpy((void *)0xFFA8, (const void *)task1MMUBlocks, 8);
+
+    /* Clear the framebuffer (32000 bytes) under Task 1 with IRQs off. */
+    BEGIN_GFX;
+    memset((void *)0x8000, 0x00, 32000);
+    END_GFX;
+
+    /* Load RGB palette first so the prompt is legible on either monitor. */
+    setRGB();
+
+    asm { sync }
+
+    *(byte *)0xFF90 = 0x4C;             /* CoCo3-native, MMU on, ROM int. */
+    *(byte *)0xFF98 = 0x80;             /* graphics mode                  */
+    *(byte *)0xFF9A = 0;                /* border = palette index 0 (felt) */
+    *(byte *)0xFF99 = 0x3E;             /* 200 lines, 160 B/row, 16 col   */
+    *(uint16_t *)0xFF9D = 0xD000;       /* video start = block 0x34       */
+    *(byte *)0xFF9F = 0;                /* no horizontal scroll / HVEN    */
+
+    if (colorMode == 0) {
+        drawTextAt(10, 96, "R-GB OR C-OMPOSITE");
+        while (!colorMode) {
+            switch (cgetc()) {
+                case 'R': case 'r': colorMode = 1; break;
+                case 'C': case 'c': colorMode = 2; break;
             }
         }
     }
 
-     updateColors();
+    updateColors();
 #endif
 }
+
+#ifdef COCO3
+/* Recolour two pmode3 glyphs for the 16-colour build: the dash's red
+   pixels become black, and the clock's 1/2 pixels swap so it reads as a
+   white face with a black hand. */
+static void patchFontForCoco3(void)
+{
+    static const struct { uint8_t ch; uint8_t map[4]; } patches[] = {
+        { 0x2D, { 0, 1, 2, 2 } },   /* dash: 3 -> 2          */
+        { 0x28, { 0, 2, 1, 3 } }    /* clock: swap 1 <-> 2   */
+    };
+    const uint8_t glyph_bytes = 16;
+    uint8_t i, r, pos, pix, b, result;
+    for (i = 0; i < sizeof(patches)/sizeof(patches[0]); i++) {
+        const uint8_t *map = patches[i].map;
+        uint16_t base = (uint16_t)patches[i].ch  CHAR_SHIFT;
+        for (r = 0; r < glyph_bytes; r++) {
+            b = charset[base + r];
+            result = 0;
+            for (pos = 0; pos < 4; pos++) {
+                pix = (b >> (6 - 2*pos)) & 3;
+                result |= map[pix] << (6 - 2*pos);
+            }
+            charset[base + r] = result;
+        }
+    }
+}
+#endif
 
 void initGraphics() {
 
     initCoCoSupport();
-    
+
+#ifdef COCO3
+    /* Patch the font before rgbOrComposite(), whose prompt uses the
+       dash and clock glyphs. */
+    patchFontForCoco3();
+
+    /* rgbOrComposite() builds the 320x200x16 GIME mode and clears the
+       framebuffer; the calls below draw into it via hires_*. */
+    rgbOrComposite();
+    clearStatusBar();
+    resetScreen();
+#else
     pmode(3,SCREEN);
     pcls(0);
     screen(1,0);
-    
+
     clearStatusBar();
     resetScreen();
 
     rgbOrComposite();
-
-    // Correct the status timer character for CoCo3
-#ifdef COCO3
-    charset[(uint16_t)(0x28<<3)+2]=charset[(uint16_t)(0x28<<3)+3]=0b11101010;
 #endif
 }
 

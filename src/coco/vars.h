@@ -5,14 +5,26 @@
 
 // Screen dimensions for platform
 
-#ifndef COCO3 
+#ifndef COCO3
 #define WIDTH 32
 #define HEIGHT 24
 #define PLAYER_MOVE_START_X 0
 #define LEFT_JUSTIFY_PLAYER_PURSE 99
-#else 
+/* Source-charset addressing for the 4-pixel-wide pmode3 font:
+   8 bytes/glyph, 1 byte/row. */
+#define CHAR_SHIFT << 3
+#define CHAR_ROW(r) (r)
+#else
+/* CoCo 3: standard 320x200x16 GIME mode (FF99=$3E). WIDTH/HEIGHT are
+   character cells (8x8 px, BPC bytes wide); STRIDE is bytes/scanline.
+   CHAR_SHIFT/CHAR_ROW address the 16-byte/glyph charset built by
+   support/coco/build_coco3_charset.py. */
 #define WIDTH 40
 #define HEIGHT 24
+#define BPC 4
+#define STRIDE 160
+#define CHAR_SHIFT << 4
+#define CHAR_ROW(r) ((r) * 2)
 #endif
 
 #define SINGLE_BUFFER

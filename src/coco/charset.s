@@ -1,9 +1,11 @@
-;; Include the custom character set for CoCo PMODE 3
-;; It can be edited with any 2bpp editor
-;; I used https://github.com/matosimi/atari-fontmaker/releases/tag/V1.6.17.4
+;; Custom character set, embedded via INCLUDEBIN. The Makefile copies the
+;; build-appropriate .fnt onto build/charset_active.fnt first:
+;;   CoCo 1/2: support/coco/pmode3.fnt        (1 KB, 8 bytes/glyph, 4 px wide)
+;;   CoCo 3  : support/coco/pmode3_coco3.fnt  (2 KB, 16 bytes/glyph, 8 px wide)
+;; CHAR_SHIFT/CHAR_ROW in vars.h pick the per-glyph addressing.
 
         SECTION rodata
         EXPORT _charset
 _charset
-        INCLUDEBIN ../../support/coco/pmode3.fnt
+        INCLUDEBIN ../../build/charset_active.fnt
         ENDSECTION
