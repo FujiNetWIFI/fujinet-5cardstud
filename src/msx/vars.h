@@ -10,7 +10,9 @@
 
 #define SINGLE_BUFFER 1
 
-#define POT_Y_MODIFIER 0
+#define POT_Y_MODIFIER -1
+#define STATUS_TIMER_WIDTH 0
+#define HOW_TO_PLAY_ROW_START 2
 
 /**
  * Platform specific key map for common input

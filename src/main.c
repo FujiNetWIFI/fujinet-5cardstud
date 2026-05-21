@@ -30,8 +30,9 @@
 char serverEndpoint[50] = "https://5card.carr-designs.com/";
 //char serverEndpoint[50] = "http://127.0.0.1:8080/"; // "N: for apple, but not C64"
 
-char query[50] = ""; //"?table=dev7";//&player=ERICAPL2";
-char playerName[12] = ""; // "eric";
+char query[50] = "?table=dev7";//&player=ERICAPL2";
+//char playerName[12] = ""; // "eric";
+char playerName[12] = "ericmsx";
 
 //GameState state;
 ClientState clientState;
@@ -66,16 +67,28 @@ int main(void)
 void main(void)
 #endif /* _CMOC_VERSION_ */
 { 
+    // uint8_t x, result;
+    // x=0;
+    // x=x+2;
+
   //unsigned char i;while (1) {if (kbhit()) {inputKey = cgetc(); printf("\nKEY: %u", inputKey);}for(i=0;i<10;i++){pause(2);printf(".");}}
   loadPrefs();
   initGraphics();
   initSound();
+
+// Checking MSX C compiler bug
+//    x=10;
+//    result=(x>5)+10;
+//    itoa(result,tempBuffer,10);
+
+//    cputs(tempBuffer);
+//    cgetc();
   
 #ifdef USE_PLATFORM_SPECIFIC_INPUT
   initPlatformKeyboardInput();
-#endif
+#endif 
 
-  showWelcomScreen();
+  showWelcomeScreen();
   showTableSelectionScreen();
 
   // Main in-game loop

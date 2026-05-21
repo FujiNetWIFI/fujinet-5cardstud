@@ -51,7 +51,7 @@ void drawPot() {
     drawChip(WIDTH/2-2,12+POT_Y_MODIFIER);
   }
   itoa(state.pot, tempBuffer, 10);
-  drawText(WIDTH/2-(state.pot>99),12+POT_Y_MODIFIER, tempBuffer);
+  drawText(WIDTH/2-(state.pot>99 ? 1:0),12+POT_Y_MODIFIER, tempBuffer);
 }
 
 void resetStateIfNewGame() {
@@ -196,7 +196,7 @@ void checkFinalFlip() {
 }
 
 void drawCards(bool finalFlip) {
-  static bool shouldMaskPlayerCard, doNotFlipCards;
+  static bool shouldMaskPlayerCard, doNotFlipCards, dummy;
   cardIndex=xOffset=fullFirst=doNotFlipCards=0;
   shouldMaskPlayerCard = true;
 
@@ -244,10 +244,14 @@ void drawCards(bool finalFlip) {
         if (finalFlip && j==1 && i>0)
             hand=(char *)"??";
 
+        // z88dk C compiler bug can't handle multiple conditions in a ternary, so use dummy variable
+        dummy = doAnim || hand[0]!='?' || state.players[i].status != 1;
+        
         drawCard(
           playerX[i]+((!fullFirst)*xOffset+(fullFirst)*(j-1))*playerDir[i],
           playerY[i],
-          hand[0]!='?' || state.players[i].status != 1 || doAnim ? FULL_CARD : playerDir[i]>0 ? PARTIAL_LEFT : PARTIAL_RIGHT,
+          //doAnim || hand[0]!='?' || state.players[i].status != 1 ? FULL_CARD : playerDir[i]>0 ? PARTIAL_LEFT : PARTIAL_RIGHT,
+          dummy ? FULL_CARD : playerDir[i]>0 ? PARTIAL_LEFT : PARTIAL_RIGHT,
           hand,
           j==1 && i==0 && (state.round < 5 || shouldMaskPlayerCard));
 
@@ -509,7 +513,7 @@ void requestPlayerMove() {
   i=(unsigned char)strlen(state.validMoves[cursorX].name);
   h=moveLoc[cursorX];
 
-
+ 
 
 // Animate the line. If needed, can add #if around instead
 // of checking render full cards

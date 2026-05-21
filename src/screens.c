@@ -51,7 +51,7 @@ unsigned char y_bump = 1;
 // Also, "#define SKIP_FIRST_BUMP" in vars.h to avoid extra space at top
 #ifndef HOW_TO_PLAY_ROW_START
 #define HOW_TO_PLAY_ROW_START 3
-#endif
+#endif 
 
 unsigned char redrawGameScreen = 0;
 
@@ -110,7 +110,7 @@ void showHelpScreen() {
 
   CLEAR_BUMP
 
-  centerStatusText("PRESS ANY KEY TO CONTINUE");
+  centerStatusText("PRESS A KEY TO CONTINUE");
 
   drawBuffer();
 
@@ -244,7 +244,7 @@ void welcomeActionVerifyPlayerName() {
 }
 
 /// @brief Shows the Welcome Screen with Logo. Asks player's name
-void showWelcomScreen() {
+void showWelcomeScreen() {
   resetScreenWithBorder();
   drawLogo();
 
@@ -262,7 +262,7 @@ void showWelcomScreen() {
   if (prefs[PREF_HELP]!=2) {
     prefs[PREF_HELP]=2;
     savePrefs();
-    showHelpScreen();
+    //showHelpScreen();
 
   }
   pause(30);
@@ -276,7 +276,7 @@ void tableActionJoinServer() {
   strcat(query, "&player=");
   strcat(query, playerName);
 
-  // Replace space with + for pshowWelcomScreenlayer name
+  // Replace space with + for pshowWelcomeScreenlayer name
   i=(unsigned char)strlen(query);
   while(--i)
     if (query[i]==' ')

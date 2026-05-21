@@ -16,7 +16,7 @@
 #include "../platform-specific/graphics.h"
 
 #define CORNER_TOP 0
-#define CORNER_BOTTOM 17
+#define CORNER_BOTTOM 18
 
 bool always_render_full_cards = 0;
 
@@ -123,8 +123,8 @@ void drawLogo()
 
 void clearStatusBar()
 {
-    vdp_vfill(0x1600,0x00,0x200);
-    vdp_vfill(MODE2_ATTR+0x1600,0x13,0x200);
+    vdp_vfill(0x1700,0x00,0x100);
+    //vdp_vfill(MODE2_ATTR+0x1700,0xF0+VDP_INK_LIGHT_GREEN,0x100);
 }
 
 /**
@@ -156,6 +156,10 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
 {
     static unsigned char val, suitColor, i, suit,rightDigit, peekChar, peekChar2;
 
+    if (x==WIDTH-3 && s[0]!='?' && cvpeek(x,y+1)==0x9E) {
+        drawCard(x+1,y,PARTIAL_RIGHT,"??",false);
+    }
+
     if (partial == PARTIAL_LEFT)
     {
         gotoxy(x,y++);
@@ -177,13 +181,18 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
         gotoxy(x,y++);
         vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
         cputs("\x81");
+        
     }
     else if (partial == PARTIAL_RIGHT)
     {
         x++;
         gotoxy(x,y++);
         vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
-        cputs("\x84");
+        cputs("\x82");
+
+        gotoxy(x,y++);
+        vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN);
+        cputs("\x9C");
 
         gotoxy(x,y++);
         vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN);
@@ -192,10 +201,6 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
         gotoxy(x,y++);
         vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN);
         cputs("\x9C");
-
-        gotoxy(x,y++);
-        vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN);
-        cputs("\x9D");
 
         gotoxy(x,y++);
         vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
@@ -230,29 +235,50 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
         // If card is overturned, draw the back
         if (s[0]=='?')
         {
-            /* gotoxy(x,y++); */
-            /* vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN); */
-            /* cputs("\x80\x82\x97"); */
+            // Shift right card left one for easy drawing of border
+            // As well as clear existing cards, assuming a fold
+            if (x>WIDTH-3) {
+                for (i=0;i<5;i++) {
+                    gotoxy(x-7,y+i);
+                    cputs("      ");
+                }
+                x--;
+            } else {
+                for (i=0;i<5;i++) {
+                    gotoxy(x+3,y+i);
+                    cputs("       ");
+                }
+            }
+            gotoxy(x,y++); 
+            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN); 
+            cputs("\x80\x82\x97"); 
 
-            /* gotoxy(x,y++); */
-            /* vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN); */
-            /* cputs("\x9E\x9f"); */
-            /* vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN); */
-            /* cputc(0x86); */
+            gotoxy(x,y++); 
+            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN); 
+            cputs("\x9E\x9f"); 
+            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN); 
+            cputc(0x86); 
 
-            /* gotoxy(x,y++); */
-            /* vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN); */
-            /* cputs("\xA0\xA1"); */
-            /* vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN); */
-            /* cputc(0x86); */
+            gotoxy(x,y++); 
+            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN); 
+            cputs("\xA0\xA1"); 
+            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN); 
+            cputc(0x86); 
 
-            /* gotoxy(x,y++); */
+            gotoxy(x,y++); 
+            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_WHITE,VDP_INK_LIGHT_GREEN); 
+            cputs("\xa2\xa3"); 
+            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN); 
+            cputc(0x86); 
+
+            gotoxy(x,y++); 
+            cputs("\x81\x83\x96");
+            
         }
         else // Draw the full card.
         {
             unsigned char cardBkg=0;
-
-            gotoxy(x,y++);
+            gotoxy(x,y);
 
             if (isHidden)
                 cardBkg = VDP_INK_GRAY;
@@ -260,8 +286,16 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
                 cardBkg = VDP_INK_WHITE;
 
             // Top card border
-            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
-            cputs("\x80\x82\x97");
+            if (cvpeek(x+1,y)!=0x82)
+            {
+                vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
+                cputs("\x80\x82");
+            }
+            if (cvpeek(x+2,y)==' ')
+            {
+                vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
+                cputc(0x97);
+            }
 
             // left border and card value
             switch (s[0])
@@ -286,63 +320,84 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
                 break;
             }
 
-            gotoxy(x,y++);
+            // Left border/space
+            gotoxy(x,++y);
             vdp_color(VDP_INK_DARK_BLUE,cardBkg,VDP_INK_LIGHT_GREEN);
             cputc(0x86);
+
+            // Card value
             vdp_color(suitColor,cardBkg,VDP_INK_LIGHT_GREEN);
             cputc(val);
-            peekChar = cvpeek(x+3,y-1);
-            if (peekChar < 0x80)
+            
+            // Right border (if no existing char)
+            if (cvpeek(x+2,y)==' ')
             {
                 vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
                 cputc(0x86);
             }
+            
 
-            // left border and empty space
-            gotoxy(x,y++);
+            // left border and empty spaces
+            gotoxy(x,++y);
             vdp_color(VDP_INK_DARK_BLUE,cardBkg,VDP_INK_LIGHT_GREEN);
             cputc(0x86);
-            vdp_color(suitColor,cardBkg,VDP_INK_LIGHT_GREEN);
             cputc(0x20);
-            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
-            peekChar = cvpeek(x+3,y-1);
-            if (peekChar < 0x80)
+            
+            // Right border (if no existing char)
+            if (cvpeek(x+2,y)==' ')
             {
                 vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
                 cputc(0x86);
             }
+            
 
-            // left border and suit
-            gotoxy(x,y++);
+            // left border
+            gotoxy(x,++y);
             vdp_color(VDP_INK_DARK_BLUE,cardBkg,VDP_INK_LIGHT_GREEN);
             cputc(0x86);
+
+            // suit
             vdp_color(suitColor,cardBkg,VDP_INK_LIGHT_GREEN);
             cputc(suit);
             vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
-            peekChar = cvpeek(x+3,y-1);
-            if (peekChar < 0x80)
+
+            // Right border (if no existing char)
+            if (cvpeek(x+2,y)==' ')
             {
                 vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
                 cputc(0x86);
             }
-
+            
             // bottom border
-            gotoxy(x,y++);
-            vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
-            cputs("\x81\x83\x96");
-
+            gotoxy(x,++y);
+            if (cvpeek(x+1,y)!=0x83)
+            {
+                vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
+                cputs("\x81\x83");
+            }
+            if (cvpeek(x+2,y)==' ')
+            {
+                vdp_color(VDP_INK_DARK_BLUE,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
+                cputc(0x96);
+            }
         }
     }
 }
 
 void drawStatusText(const char* s)
 {
-    drawText(0,22,s);
+    clearStatusBar();
+    drawStatusTextAt(0, s);
+    //vdp_color(VDP_INK_BLACK,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
+    //gotoxy(0,22+(strlen(s)<=WIDTH?1:0));
+    //cputs(strupr(s));
 }
 
 void drawStatusTextAt(unsigned char x, const char* s)
 {
-    drawText(x,22,s);
+    vdp_color(VDP_INK_BLACK,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
+    gotoxy(x,22+(strlen(s)<=WIDTH?1:0));
+    cputs(strupr(s));
 }
 
 unsigned char cycleNextColor()
@@ -355,23 +410,37 @@ void drawStatusTimer()
 
 void hideLine(unsigned char x, unsigned char y, unsigned char w)
 {
-    vdp_color(VDP_INK_DARK_RED,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
-
-    for (unsigned char i=0; i<w; i++)
+    uint8_t i;
+    if (y==23)
     {
-        gotoxy(x+i,y);
-        cputc(0x20);
+        vdp_vfill(MODE2_ATTR+0x1700+x*8,VDP_INK_BLACK*0x10+VDP_INK_LIGHT_GREEN,8*w);
     }
+    else
+    {
+        for(i=0;i<w*8;i+=8)
+        {
+            vdp_vfill(MODE2_ATTR+0x100*y+x*8+i,0x10+VDP_INK_LIGHT_GREEN,2);
+        }
+    }
+
 }
 
 void drawLine(unsigned char x, unsigned char y, unsigned char w)
 {
-    vdp_color(VDP_INK_DARK_RED,VDP_INK_LIGHT_GREEN,VDP_INK_LIGHT_GREEN);
-
-    for (unsigned char i=0; i<w; i++)
+    uint8_t i;
+    if (y==23) 
     {
-        gotoxy(x+i,y);
-        cputc(0xA6);
+        for(i=0;i<w*8;i+=8)
+        {
+            vdp_vpoke(MODE2_ATTR+0x1707+x*8+i,0x10+VDP_INK_MEDIUM_RED);
+        }
+    }
+    else
+    {
+        for(i=0;i<w*8;i+=8) 
+        {
+            vdp_vfill(MODE2_ATTR+0x100*y+x*8+i,0x10+VDP_INK_MEDIUM_RED,2);
+        }
     }
 }
 
