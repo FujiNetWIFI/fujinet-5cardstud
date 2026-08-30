@@ -16,7 +16,7 @@
 /*****************************************************************************/
 
 /* These match the bit layout of z88dk's st_dir[] table, which maps the raw
-   GTSTCK direction code (0-8) onto a bitmask. See src/msx/input.c. */
+   GTSTCK direction code (0-8) onto a bitmask. See src/msx/joyread.asm. */
 
 #define JOY_UP_MASK             0x01
 #define JOY_RIGHT_MASK          0x02

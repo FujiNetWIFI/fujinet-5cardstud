@@ -20,8 +20,8 @@
 
 // Primary codes are what the MSX BIOS CHGET actually returns for the cursor
 // keys. The _2 slots are unused placeholders (readCommonInput() switches on all
-// three, so they only have to be distinct and unreachable) - same approach as
-// src/coco/vars.h. The _3 slots are the , . - = alternates.
+// three, so they only have to be distinct and unreachable). The _3 slots are
+// the , . - = alternates shared with the other ports.
 
 #define KEY_LEFT_ARROW      0x1D
 #define KEY_LEFT_ARROW_2    0xF1
@@ -55,10 +55,10 @@
 #define ALT_LETTER_AND 0x0
 
 #define QUERY_SUFFIX ""
+
 /*
  Screen related variables
 */
-
 
 // Screen specific player/bet coordinates
 extern unsigned char playerXMaster[];

@@ -1,3 +1,5 @@
+#ifdef BUILD_MSX
+
 /**
  * @brief   MSX Sound Routines
  * @author  Thomas Cherryhomes
@@ -9,7 +11,7 @@
 #include <psg.h>
 #include <sound.h>
 
-void waitvsync();
+void waitvsync(void);
 
 /**
  * @brief Brain dead beep routine
@@ -99,3 +101,5 @@ void soundTakeChip(uint16_t counter)
 {
     beep(50+counter*20,2,2);
 }
+
+#endif /* BUILD_MSX */

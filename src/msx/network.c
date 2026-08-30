@@ -1,3 +1,5 @@
+#ifdef BUILD_MSX
+
 /**
  * @brief   Network functions
  * @author  Thomas Cherryhomes
@@ -30,3 +32,5 @@ uint8_t getResponse(char *url, unsigned char *buffer, uint16_t max_len)
 
     return count > 0;
 }
+
+#endif /* BUILD_MSX */
