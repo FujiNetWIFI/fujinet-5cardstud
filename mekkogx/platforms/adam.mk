@@ -8,7 +8,7 @@ include $(MWD)/toolchains/z88dk.mk
 ADAM_FLAGS = +coleco -subtype=adam
 CFLAGS += $(ADAM_FLAGS)
 LDFLAGS += $(ADAM_FLAGS)
-LIBS += -leos.lib -lsmartkeys.lib
+LIBS += -leos.lib
 ifneq ($(IS_LIBRARY),1)
   LDFLAGS += -create-app
 endif

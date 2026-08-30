@@ -1,460 +1,512 @@
 #ifdef __ADAM__
-#include "../platform-specific/graphics.h"
+
+/**
+ * @brief   Adam Graphics Routines for 5cardstud
+ * @author  Thomas Cherryhomes
+ * @email   thom dot cherryhomes at gmail dot com
+ * @license gpl v. 3, see LICENSE for details
+ * @verbose TMS9918 GRAPHICS II via the z88dk generic console; card and
+ *          frame art converted from the MS-DOS CGA tiles (see udg.h),
+ *          text set in the Namco arcade font via the CRT_FONT redirect.
+ */
+
+#include <stdbool.h>
+#include <string.h>
 #include <video/tms99x8.h>
 #include <conio.h>
 #include <sys/ioctl.h>
-#include <smartkeys.h>
-#include "udgs.h"
-#include "eos.h"
+#include <eos.h>
+#include "udg.h"
+#include "vars.h"
+#include "../platform-specific/graphics.h"
 
-//defines for tile locations
-// #define POINTER_TILE 216
-// #define CHIP_TILE 1
-// #define UL_CORNER_TILE 144
-// #define HORIZONTAL_TILE 145
-// #define UR_CORNER_TILE 146
-// #define LL_CORNER_TILE 147
-// #define LR_CORNER_TILE 148
-// #define VERTICAL_TILE 149
+#define CORNER_TOP 0
+#define CORNER_BOTTOM 18
 
-#define POINTER_TILE 0xbe
-#define CHIP_TILE 0xbc
-#define UL_CORNER_TILE 0xb6
-#define HORIZONTAL_TILE 0xb7
-#define UR_CORNER_TILE 0xb8
-#define LL_CORNER_TILE 0xb9
-#define LR_CORNER_TILE 0xba
-#define VERTICAL_TILE 0xbb
+// Table palette: MS-DOS felt/dark-red remapped to the TMS9918.
+#define C_TABLE   VDP_INK_DARK_GREEN   // the felt
+#define C_ACCENT  VDP_INK_MEDIUM_RED   // card outlines/backs, frames
+#define C_CARD_BG VDP_INK_WHITE        // card face
+#define C_TEXT    VDP_INK_WHITE        // table text
+#define C_BORDER  VDP_INK_BLACK        // VDP border / status bar paper
 
-// tile data for the corners of the screen to round them off...
-const unsigned char upperLeftCorner[] = { 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0x7f, 0xff, 0xff};
-const unsigned char upperRightCorner[] = { 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xfe, 0xff, 0xff};
-const unsigned char lowerLeftCorner[] = { 0xff, 0xff, 0x7f, 0x7f, 0x3f, 0x1f, 0x0f, 0x07};
-const unsigned char lowerRightCorner[] = { 0xff, 0xff, 0xfe, 0xfe, 0xfc, 0xf8, 0xf0, 0xe0};
+// VDP interrupt hook living in util.c (bumps the timer + vsync flag)
+extern void myInt(void);
 
-// tiles for moves
-const char sCall[] = "\x9a\x9b\x9c";
-const char sRaise[] = "\x9d\x9e\x9f";
-const char sBet[] = "\xa0\xa1";
-const char sCheck[] = "\xa2\xa3\xa4";
-const char sFold[] = "\xa5\xa6\xa7";
-
-enum {SPADES=0,CLUBS,DIAMONDS,HEARTS};
-
-unsigned char pointerLocation_x = 255;
-unsigned char pointerLocation_y = 255;
-extern unsigned long currentTime;
 bool always_render_full_cards = 0;
-bool vsync = false;
 
-
-void enableDoubleBuffer()
+/**
+ * @brief Initialize graphics mode; set palette.
+ */
+void initGraphics()
 {
+    void *param = &udg;
+    vdp_set_mode(2);
+    console_ioctl(IOCTL_GENCON_SET_UDGS,&param);
+    vdp_color(C_TEXT,C_TABLE,C_BORDER);
+    add_raster_int(myInt);
+    clrscr();
 }
 
-void disableDoubleBuffer()
+void drawChip(unsigned char x, unsigned char y)
 {
+    vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+    gotoxy(x,y);
+    cputc(UDG_CHIP);
 }
 
 void drawBuffer()
 {
 }
 
-// Call to clear the screen to an empty table
-void resetScreen()
+void drawBox(unsigned char x, unsigned char y, unsigned char w, unsigned char h)
 {
-    vdp_vfill(0x8,0,240);
-    vdp_vfill(0x0100,0,0x1600);
-    vdp_vfill(0x1708,0,240);
-    vdp_vfill(0x2100,0xfc,0x1600);
+    unsigned char i=0;
+    // Correct coordinates;
+    w++;
+    h++;
+
+    vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+
+    // Put box corners at coordinate extents
+    gotoxy(x,y);
+    cputc(UDG_BOX_TL);
+    gotoxy(x+w,y);
+    cputc(UDG_BOX_TR);
+    gotoxy(x,y+h);
+    cputc(UDG_BOX_BL);
+    gotoxy(x+w,y+h);
+    cputc(UDG_BOX_BR);
+
+    x++;
+    w--;
+
+    // Put horizontal rules
+    gotoxy(x,y);
+    for (i=0;i<w;i++)
+        cputc(UDG_BOX_H);
+
+    gotoxy(x,y+h);
+    for (i=0;i<w;i++)
+        cputc(UDG_BOX_H);
+
+    // Correct again
+    x--;
+    y++;
+    h--;
+    w++;
+
+    // Put vertical rules
+    for (i=0;i<h;i++)
+    {
+        gotoxy(x,y+i);
+        cputc(UDG_BOX_V);
+    }
+
+    for (i=0;i<h;i++)
+    {
+        gotoxy(x+w,y+i);
+        cputc(UDG_BOX_V);
+    }
+}
+
+/**
+ * @brief Draw text s at position x,y
+ * @param x Horizontal position (0-31)
+ * @param y Vertical Position (0-23)
+ * @param s NULL terminated string to display.
+ */
+void drawText(unsigned char x, unsigned char y, const char* s)
+{
+    vdp_color(C_TEXT,C_TABLE,C_BORDER);
+    gotoxy(x,y);
+    cputs(strupr(s));
+}
+
+/**
+ * @brief Draw the 5 Card Stud Logo
+ */
+void drawLogo()
+{
+    static unsigned char i;
+    i=4;
+    drawText(WIDTH/2-5,++i, "           ");
+    drawText(WIDTH/2-5,++i, " FUJI  NET ");
+    drawText(WIDTH/2-5,++i, "           ");
+    drawText(WIDTH/2-5,++i, "5 CARD STUD");
+    drawText(WIDTH/2-5,++i, "           ");
 }
 
 void clearStatusBar()
 {
-    vdp_vfill(0x1600,0,256);
-    vdp_vfill(0x1708,0,240);
+    // Clear row 23's patterns only; row 22 is left alone deliberately,
+    // as the border aces and bottom-seat cards extend into it.
+    vdp_vfill(0x1700,0x00,0x100);
 }
 
-void drawStatusTextAt(unsigned char x, char* s)
+/**
+ * @brief Clear the screen
+ */
+void resetScreen()
 {
-    // textcolor(WHITE);
-    // gotoxy(x,22);
-    // cputs(s);
-    drawText(x,22,s);
+    vdp_color(C_TEXT,C_TABLE,C_BORDER);
+    clrscr();
+
+    // Persistent status bar: row 23 renders white on black.
+    vdp_vfill(MODE2_ATTR+0x1700,(VDP_INK_WHITE<<4)|VDP_INK_BLACK,0x100);
+
+    // Round the felt off against the border/status bar, like the MS-DOS
+    // build. Green ink on black paper; card draws may overlay these.
+    vdp_color(C_TABLE,VDP_INK_BLACK,C_BORDER);
+    gotoxy(0,0);
+    cputc(UDG_SCREEN_TL);
+    gotoxy(WIDTH-1,0);
+    cputc(UDG_SCREEN_TR);
+    gotoxy(0,22);
+    cputc(UDG_SCREEN_BL);
+    gotoxy(WIDTH-1,22);
+    cputc(UDG_SCREEN_BR);
 }
 
-void drawStatusText(char* s)
+void disableDoubleBuffer()
 {
-    static char* comma;
-    clearStatusBar();
-    textcolor(WHITE);
-    if (strlen(s)>62) {
-        comma = s;
-        while (*comma++!=',');
-            comma[0]=0;
-        comma++;
-        // gotoxy(0,22);
-        // cputs(s);
-        // gotoxy(0,23);
-        // cputs(comma);
-        smartkeys_puts(8,176,s);
-        smartkeys_puts(8,184,comma);
-
-        // drawText(1, 22, s);
-        // drawText(1, 23, comma);
-    } else {
-        smartkeys_puts(8,176,s);
-        // drawStatusTextAt(1, s);
-    }
-
-
 }
 
-void drawStatusTimer()
+void enableDoubleBuffer()
 {
-    // gotoxy(10,0);
-    // printf("timer %d",currentTime/60);
 }
 
-void drawText(unsigned char x, unsigned char y, char* s)
-{
-    gotoxy(x,y);
-    if (strcmp(s,"FOLD") == 0)
-        cputs(sFold);
-    else if (strcmp(s,"CALL") == 0)
-        cputs(sCall);
-    else if (strcmp(s,"CHECK") == 0)
-        cputs(sCheck);
-    else if (strcmp(s,"RAISE") == 0)
-        cputs(sRaise);
-    else if (strcmp(s,"BET") == 0)
-        cputs(sBet);
-    else 
-    {
-        textcolor(WHITE);
-        textbackground(GREEN);
-        gotoxy(x,y);
-        cputs(s);
-        // smartkeys_puts(x*8,y*8,s);
-    }
-}
-
+/**
+ * @brief Draw card at position x,y
+ * @param x Horizontal card position (0-31)
+ * @param y Vertical card position (0-23)
+ * @param partial enum (see ../platform-specific/graphics.h)
+ * @param s String indicating number and suit. (e.g. "as" for ace of spades)
+ * @param isHidden is card currently overturned?
+ */
 void drawCard(unsigned char x, unsigned char y, unsigned char partial, const char* s, unsigned char isHidden)
 {
-    char red = 0;
-    char suit;
-    unsigned int checkscreenloc = 0;
-    bool adjacentCard = false;
-    static char testbytes[8];
+    static unsigned char val, suitColor, i, suit;
 
-    if (x+3 <= 32) checkscreenloc = (x*(y+1)*8) + 24;
-
-    vdp_vread(checkscreenloc,testbytes,sizeof(testbytes));
-    for (i = 0; i < sizeof(testbytes); i++)
-    {
-        if (testbytes[i] != 0 ) {// data in here...
-            adjacentCard = true;
-            break;
-        }
+    if (x==WIDTH-3 && s[0]!='?' && cvpeek(x,y+1)==UDG_BACK_L_TOP) {
+        drawCard(x+1,y,PARTIAL_RIGHT,"??",false);
     }
 
-    textcolor(LIGHTBLUE);
-    textbackground(GREEN);
-
-    //cards in tile set are 5 tiles tall, and 2 tiles wide for a full card (3 at the end), 
-    //and 1 tile wide for partial
-    // x=x/2;
-    gotoxy(x,y++);
-
-    //draw the top of the card
     if (partial == PARTIAL_LEFT)
     {
-        cputc(0x93);
-        textbackground(WHITE);
         gotoxy(x,y++);
-        cputc(0xb0);
+        vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+        cputc(UDG_CARD_TL);
+
         gotoxy(x,y++);
-        cputc(0xb2);
+        vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+        cputc(UDG_BACK_L_TOP);
+
         gotoxy(x,y++);
-        cputc(0xb4);
-        textbackground(GREEN);
+        vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+        cputc(UDG_BACK_L_MID);
+
         gotoxy(x,y++);
-        cputc(0x94);
-    } else if (partial == PARTIAL_RIGHT)
+        vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+        cputc(UDG_BACK_L_BOT);
+
+        gotoxy(x,y++);
+        vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+        cputc(UDG_CARD_BL);
+
+    }
+    else if (partial == PARTIAL_RIGHT)
     {
-        // x++;
-        cputc(0x97);
-        textbackground(WHITE);
+        x++;
         gotoxy(x,y++);
-        cputc(0xad);
+        vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+        cputc(UDG_CARD_TOP_TRIM);
+
         gotoxy(x,y++);
-        cputc(0xae);
+        vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+        cputc(UDG_BACK_RCOL_TOP);
+
         gotoxy(x,y++);
-        cputc(0xaf);
+        vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+        cputc(UDG_BACK_RCOL_MID);
+
         gotoxy(x,y++);
-        textbackground(GREEN);
-        cputc(0x98);
-    } else {
-        switch (toupper(s[1])) {
-            case 'H' : suit=0x8f + HEARTS; red=RED; break;
-            case 'D' : suit=0x8f + DIAMONDS; red=RED; break;
-            case 'C' : suit=0x8f + CLUBS; red=BLACK; break;
-            case 'S' : suit=0x8f + SPADES; red=BLACK; break;
-            case '?' : red=LIGHTBLUE; break;
-            default: suit=0; red=0; break;
+        vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+        cputc(UDG_BACK_RCOL_BOT);
+
+        gotoxy(x,y++);
+        vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+        cputc(UDG_CARD_BOT_TRIM);
+    }
+    else // FULL CARD
+    {
+        switch (s[1])
+        {
+        case 'h' :
+            suit=UDG_SUIT_HEART;
+            suitColor=C_ACCENT;
+            break;
+        case 'd' :
+            suit=UDG_SUIT_DIAMOND;
+            suitColor=C_ACCENT;
+            break;
+        case 'c' :
+            suit=UDG_SUIT_CLUB;
+            suitColor=VDP_INK_BLACK;
+            break;
+        case 's' :
+            suit=UDG_SUIT_SPADE;
+            suitColor=VDP_INK_BLACK;
+            break;
+        default:
+            suit=UDG_CARD_VERT;
+            suitColor=VDP_INK_DARK_YELLOW; // Something wrong.
+            break;
         }
-    
-        cputs("\x93\x95\xa9");
-        gotoxy(x,y++);
-        textcolor(LIGHTBLUE);
-        textbackground(WHITE);
 
-        if (s[0] == '?')
-            cputc(0xb0);
-        else 
-            cputc(0x99);
+        // If card is overturned, draw the back
+        if (s[0]=='?')
+        {
+            // Shift right card left one for easy drawing of border
+            // As well as clear existing cards, assuming a fold
+            vdp_color(C_TEXT,C_TABLE,C_BORDER);
+            if (x>WIDTH-3) {
+                for (i=0;i<5;i++) {
+                    gotoxy(x-7,y+i);
+                    cputs("      ");
+                }
+                x--;
+            } else {
+                for (i=0;i<5;i++) {
+                    gotoxy(x+3,y+i);
+                    cputs("       ");
+                }
+            }
+            gotoxy(x,y++);
+            vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+            cputc(UDG_CARD_TL);
+            cputc(UDG_CARD_TOP);
+            cputc(UDG_CARD_TR_STUB);
 
-        // Card value row
-        textcolor(red);
-        switch (toupper(s[0])) {
-            case 'T': cputs("\x8a"); break;
-            case 'J': cputs("\x8b"); break;
-            case 'Q': cputs("\x8c"); break;
-            case 'K': cputs("\x8d"); break;
-            case 'A': cputs("\x8e"); break;
-            case '?': cputs("\xb1"); break;
+            gotoxy(x,y++);
+            vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+            cputc(UDG_BACK_L_TOP);
+            cputc(UDG_BACK_R_TOP);
+            vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+            cputc(UDG_CARD_VERT);
+
+            gotoxy(x,y++);
+            vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+            cputc(UDG_BACK_L_MID);
+            cputc(UDG_BACK_R_MID);
+            vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+            cputc(UDG_CARD_VERT);
+
+            gotoxy(x,y++);
+            vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+            cputc(UDG_BACK_L_BOT);
+            cputc(UDG_BACK_R_BOT);
+            vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+            cputc(UDG_CARD_VERT);
+
+            gotoxy(x,y++);
+            cputc(UDG_CARD_BL);
+            cputc(UDG_CARD_BOT);
+            cputc(UDG_CARD_BR_STUB);
+
+        }
+        else // Draw the full card.
+        {
+            gotoxy(x,y);
+
+            // Top card border
+            if (cvpeek(x+1,y)!=UDG_CARD_TOP)
+            {
+                vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+                cputc(UDG_CARD_TL);
+                cputc(UDG_CARD_TOP);
+            }
+            if (cvpeek(x+2,y)==' ')
+            {
+                gotoxy(x+2,y);
+                vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+                cputc(UDG_CARD_TR_STUB);
+            }
+
+            // left border and card value
+            switch (s[0])
+            {
+            case 't':
+                val=UDG_RANK_T; // 10
+                break;
+            case 'j':
+                val=UDG_RANK_J;
+                break;
+            case 'q':
+                val=UDG_RANK_Q;
+                break;
+            case 'k':
+                val=UDG_RANK_K;
+                break;
+            case 'a':
+                val=UDG_RANK_A;
+                break;
             default:
-                cputc(s[0] + 0x50);
+                val=UDG_RANK_2+(s[0]-'2');
+                break;
+            }
+
+            // Left border/space
+            gotoxy(x,++y);
+            vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+            cputc(UDG_CARD_VERT);
+
+            // Card value
+            vdp_color(suitColor,C_CARD_BG,C_BORDER);
+            cputc(val);
+
+            // Right border (if no existing char)
+            if (cvpeek(x+2,y)==' ')
+            {
+                vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+                cputc(UDG_CARD_VERT);
+            }
+
+            // left border and interior (hole-card marker band if hidden)
+            gotoxy(x,++y);
+            if (isHidden)
+            {
+                vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+                cputc(UDG_HIDDEN_L);
+                cputc(UDG_HIDDEN_R);
+
+                // The MS-DOS marker's double rule is black; GRAPHICS II
+                // colors per pixel row, so repaint tile rows 1 and 6
+                // (solid ink in the marker tiles) black-on-white.
+                for (i=0;i<2;i++)
+                {
+                    vdp_vpoke(MODE2_ATTR+0x100*y+(x+i)*8+1,(VDP_INK_BLACK<<4)|VDP_INK_WHITE);
+                    vdp_vpoke(MODE2_ATTR+0x100*y+(x+i)*8+6,(VDP_INK_BLACK<<4)|VDP_INK_WHITE);
+                }
+            }
+            else
+            {
+                vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+                cputc(UDG_CARD_VERT);
+                cputc(0x20);
+            }
+
+            // Right border (if no existing char)
+            if (cvpeek(x+2,y)==' ')
+            {
+                vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+                gotoxy(x+2,y);
+                cputc(UDG_CARD_VERT);
+            }
+
+            // left border
+            gotoxy(x,++y);
+            vdp_color(C_ACCENT,C_CARD_BG,C_BORDER);
+            cputc(UDG_CARD_VERT);
+
+            // suit
+            vdp_color(suitColor,C_CARD_BG,C_BORDER);
+            cputc(suit);
+
+            // Right border (if no existing char)
+            if (cvpeek(x+2,y)==' ')
+            {
+                vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+                gotoxy(x+2,y);
+                cputc(UDG_CARD_VERT);
+            }
+
+            // bottom border
+            gotoxy(x,++y);
+            if (cvpeek(x+1,y)!=UDG_CARD_BOT)
+            {
+                vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+                cputc(UDG_CARD_BL);
+                cputc(UDG_CARD_BOT);
+            }
+            if (cvpeek(x+2,y)==' ')
+            {
+                gotoxy(x+2,y);
+                vdp_color(C_ACCENT,C_TABLE,C_BORDER);
+                cputc(UDG_CARD_BR_STUB);
+            }
         }
-
-        textcolor(LIGHTBLUE);
-        textbackground(GREEN);
-        if (!adjacentCard) cputc(0x99);
-
-        textcolor(LIGHTBLUE);
-        textbackground(WHITE);
-
-        // blank middle row of card
-        gotoxy(x,y++);
-        if (s[0] == '?') //back of card
-        {
-            cputs("\xb2\xb3"); textbackground(GREEN); if (!adjacentCard) cputs("\x99");
-        }
-        else
-        {
-            cputs("\x99\x80"); textbackground(GREEN); if (!adjacentCard) cputs("\x99");
-        }
-
-
-        // suit row of card .. depends on ? or not...
-        gotoxy(x,y++);
-        textbackground(WHITE);
-        if (s[0] == '?')
-        {
-            cputs("\xb4\xb5");
-        } else {
-            cputs("\x99"); 
-            textcolor(red);
-            cputc(suit); 
-        }
-
-        textcolor(LIGHTBLUE); textbackground(GREEN);  if (!adjacentCard) cputs("\x99");
-
-        textcolor(LIGHTBLUE);
-        textbackground(GREEN);
-
-        // bottom border of card
-        gotoxy(x,y++);
-        cputs("\x94\x96");  if (!adjacentCard) cputs("\xa8");
     }
 }
 
-void drawChip(unsigned char x, unsigned char y)
+void drawStatusText(const char* s)
 {
-    textcolor(YELLOW);
-    textbackground(GREEN);
-
-    gotoxy(x,y);
-    cputc(CHIP_TILE);
+    clearStatusBar();
+    drawStatusTextAt(0, s);
 }
 
-void drawPointer(unsigned char x, unsigned char y)
+void drawStatusTextAt(unsigned char x, const char* s)
 {
-    textcolor(CYAN);
-    textbackground(GREEN);
-    gotoxy(x,y);
-    cputc(POINTER_TILE);
-}
-
-void drawLine(unsigned char x, unsigned char y, unsigned char w)
-{
-    unsigned char i;
-
-    textcolor(RED);
-    textbackground(GREEN);
-
-    gotoxy(x,y);
-    for (i=0; i<w; i++)
-        cputc(HORIZONTAL_TILE);
-}
-
-void hideLine(unsigned char x, unsigned char y, unsigned char w)
-{
-    unsigned char i;
-
-    textcolor(WHITE);
-    textbackground(GREEN);
-
-    gotoxy(x,y);
-    for (i=0; i<w; i++)
-        cputc(0x20);
-}
-
-void drawBox(unsigned char x, unsigned char y, unsigned char w, unsigned char h)
-{
-    unsigned char i;
-
-    textcolor(RED);
-    textbackground(GREEN);
-
-    gotoxy(x,y++);
-    //Draw the top
-    cputc(UL_CORNER_TILE);
-    for (i = 1; i <= w; i++)
-        cputc(HORIZONTAL_TILE);
-    cputc(UR_CORNER_TILE);
-
-    //Draw the sides
-    for (i = 0; i < h; i++)
-    {
-        gotoxy(x,y);
-        cputc(VERTICAL_TILE);
-        gotoxy(x+w+1,y++);
-        cputc(VERTICAL_TILE);
-    }
-    gotoxy(x,y);
-    //Draw the bottom
-    cputc(LL_CORNER_TILE);
-    for (i = 1; i <= w; i++)
-        cputc(HORIZONTAL_TILE);
-    cputc(LR_CORNER_TILE);
-}
-
-void drawBorder()
-{
-}
-
-void drawLogo()
-{
-    smartkeys_puts(80,88,"FIVE CARD STUD");
-}
-
-void setColorMode()
-{
+    vdp_color(VDP_INK_WHITE,VDP_INK_BLACK,C_BORDER);
+    gotoxy(x,22+(strlen(s)<=WIDTH?1:0));
+    cputs(strupr(s));
 }
 
 unsigned char cycleNextColor()
 {
+    return 0;
 }
 
-
-//This is a debug function to print out a set of cards on the display to make sure the correct tiles are used and they 
-// display correctly
-void testCardTiles()
+void drawStatusTimer()
 {
-    unsigned char card[2];
-    int x; int y;
+}
 
-    resetScreen();
-
-
-    card[0] = '?';
-    card[1] = '?';
-    drawCard(1, 1, FULL_CARD, card, false);
-
-    card[0] = 'A';
-    card[1] = 'D';
-    drawCard(5, 1, FULL_CARD, card, false);
-
-    card[0] = 'K';
-    card[1] = 'C';
-    drawCard(9, 1, FULL_CARD, card, false);
-
-    card[0] = 'Q';
-    card[1] = 'S';
-    drawCard(13, 1, FULL_CARD, card, false);
-
-    card[0] = 'J';
-    card[1] = 'H';
-    drawCard(17, 1, FULL_CARD, card, false);
-
-    drawCard(20,1, PARTIAL_LEFT,card,false);
-    drawCard(22,1, PARTIAL_RIGHT,card,false);
-
-    card[0] = '9';
-    card[1] = 'D';
-    drawCard(24,1, PARTIAL_LEFT,card,false);
-    drawCard(25,1, FULL_CARD,card,false);
-    drawCard(27,1, PARTIAL_RIGHT,card,false);
-
-
-    card[0] = '2';
-
-    for (x = 0; x<6; x++)
+void hideLine(unsigned char x, unsigned char y, unsigned char w)
+{
+    uint8_t i;
+    if (y==23)
     {
-        drawCard((x*4) + 1, 6, FULL_CARD, card, false);
-        card[0]++;
+        vdp_vfill(MODE2_ATTR+0x1700+x*8,(VDP_INK_WHITE<<4)|VDP_INK_BLACK,8*w);
+    }
+    else
+    {
+        for(i=0;i<w*8;i+=8)
+        {
+            vdp_vfill(MODE2_ATTR+0x100*y+x*8+i,(VDP_INK_WHITE<<4)|C_TABLE,2);
+        }
     }
 
-    card[1] = 'S';
-    for (x = 0; x<6; x++)
+}
+
+void drawLine(unsigned char x, unsigned char y, unsigned char w)
+{
+    uint8_t i;
+    if (y==23)
     {
-        drawCard((x*4) + 1, 11, FULL_CARD, card, false);
-        card[0]++;
+        for(i=0;i<w*8;i+=8)
+        {
+            vdp_vpoke(MODE2_ATTR+0x1707+x*8+i,(VDP_INK_WHITE<<4)|C_ACCENT);
+        }
     }
-
-
+    else
+    {
+        for(i=0;i<w*8;i+=8)
+        {
+            vdp_vfill(MODE2_ATTR+0x100*y+x*8+i,(VDP_INK_WHITE<<4)|C_ACCENT,2);
+        }
+    }
 }
 
-void myInt()
+void setColorMode(unsigned char mode)
 {
-    currentTime++;
-    vsync=true;
 }
 
-void initGraphics()
+void drawBorder()
 {
-    //set up the vdp vram with tile data, both tile and color... change to mode 1 first thing.
-    //change background to medium green...
-	unsigned int reg = 0;
-
-    smartkeys_set_mode();
-    void *param = &udgs;
-    console_ioctl(IOCTL_GENCON_SET_UDGS,&param);
-    vdp_color(VDP_INK_WHITE,VDP_INK_DARK_GREEN,VDP_INK_BLACK);
-    add_raster_int(myInt);
-
-    clrscr();
-
-    // put the corners on the table
-    vdp_vwrite(upperLeftCorner,0, sizeof(upperLeftCorner));
-    vdp_vfill(0x2000,0xc1,8);
-    vdp_vwrite(upperRightCorner,0x00f8,sizeof(upperRightCorner));
-    vdp_vfill(0x20f8,0xc1,8);
-    vdp_vwrite(lowerLeftCorner,0x1700,sizeof(lowerLeftCorner));
-    vdp_vfill(0x3700,0xc1,8);
-    vdp_vwrite(lowerRightCorner,0x17f8,sizeof(lowerRightCorner));
-    vdp_vfill(0x37f8,0xc1,8);
-
-    // testCardTiles();
-    // drawPointer(31,20);
-    // while(1){};
-}
-
-void waitvsync()
-{
-    while(!vsync);
-    vsync=false;
+    drawCard(1,CORNER_TOP,FULL_CARD, "as", 0);
+    drawCard(WIDTH-3,CORNER_TOP,FULL_CARD, "ah", 0);
+    drawCard(1,CORNER_BOTTOM,FULL_CARD, "ad", 0);
+    drawCard(WIDTH-3,CORNER_BOTTOM,FULL_CARD, "ac", 0);
 }
 
 #endif /* __ADAM__ */

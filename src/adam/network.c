@@ -1,40 +1,36 @@
 #ifdef __ADAM__
-#include <eos.h>
-#include "network_utils.h"
 
-/*
-  Network functionality
-*/
+/**
+ * @brief   Network functions
+ * @author  Thomas Cherryhomes
+ * @email   thom dot cherryhomes at gmail dot com
+ * @license gpl v. 3, see LICENSE for details
+ */
 
-extern unsigned char response[];
+#include <stdint.h>
+#include <fujinet-network.h>
 
-int getJsonResponse(char *url, char *buffer, int max_length)
+static uint8_t initialized = 0;
+
+uint8_t getResponse(char *url, unsigned char *buffer, uint16_t max_len)
 {
-  NetStatus stat;
-  unsigned char r = 0;
-  int rxcount = 0;
-  memset(response,0, 1024);
+    int16_t count;
 
-  if (network_open(url,MODE_READ_WRITE,2) != ACK)
-    return 0;
+    if (!initialized) {
+        if (network_init() != FN_ERR_OK)
+            return 0;
+        initialized = 1;
+    }
 
-  network_set_channel_mode(MODE_JSON);
-  network_parse_json();
+    // Don't read from a channel that never opened - network_read() would
+    // otherwise poll status on a dead unit and hand back whatever it got.
+    if (network_open(url, OPEN_MODE_HTTP_GET_H, OPEN_TRANS_NONE) != FN_ERR_OK)
+        return 0;
 
-  //we need to skip the server address part of the url (I think), 
-  //so since we already have that in serverEndpoint to find the length and bump past here.
-  // (otherwise we'd have to count '/' or some other thing, which might be different)
-#ifdef DEBUG_ADAMNET
-  printf("query it %s",url);
-#endif
-  network_json_query(url);
+    count = network_read(url, buffer, max_len);
+    network_close(url);
 
-#ifdef DEBUG_ADAMNET
-  printf("check status");
-#endif //DEBUG_ADAMNET
-
-  rxcount =  network_read(buffer,max_length);
-  return rxcount;
+    return count > 0;
 }
 
 #endif /* __ADAM__ */

@@ -1,10 +1,13 @@
 #ifdef __ADAM__
-#include <eos.h>
+
 /**
  * @brief Adam input routines
  * @author Thomas Cherryhomes, Geoff Oltmans
  * @license gpl v.3
  */
+
+#include <eos.h>
+#include "../platform-specific/input.h"
 
 static GameControllerData cont;
 
@@ -18,8 +21,6 @@ unsigned char readJoystick()
   return temp;
 }
 
-
-#ifdef USE_PLATFORM_SPECIFIC_INPUT
 void initPlatformKeyboardInput(void)
 {
   eos_start_read_keyboard();
@@ -30,12 +31,13 @@ int getPlatformKey(void)
   int ch;
   ch=eos_end_read_keyboard();
 
+  // <=1 means the asynchronous read is still pending (no key yet).
   if (ch>1)
   {
-    // smartkeys_sound_play(SOUND_TYPEWRITER_CLACK);
     eos_start_read_keyboard();
+    return ch;
   }
-  return ch;
+  return 0;
 }
-#endif
+
 #endif /* __ADAM__ */

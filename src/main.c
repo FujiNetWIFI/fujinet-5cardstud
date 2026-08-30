@@ -30,9 +30,9 @@
 char serverEndpoint[50] = "https://5card.carr-designs.com/";
 //char serverEndpoint[50] = "http://127.0.0.1:8080/"; // "N: for apple, but not C64"
 
-char query[50] = "?table=dev7";//&player=ERICAPL2";
-//char playerName[12] = ""; // "eric";
-char playerName[12] = "ericmsx";
+char query[50] = "";//&player=ERICAPL2";
+char playerName[12] = ""; // "eric";
+//char playerName[12] = "ericmsx";
 
 //GameState state;
 ClientState clientState;

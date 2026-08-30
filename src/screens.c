@@ -116,7 +116,8 @@ void showHelpScreen() {
 
   clearCommonInput();
 #ifdef USE_PLATFORM_SPECIFIC_INPUT
-  getPlatformKey();
+  // getPlatformKey() is non-blocking on these platforms
+  while (!getPlatformKey());
 #else
   cgetc();
 #endif

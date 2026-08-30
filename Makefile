@@ -1,10 +1,9 @@
 PRODUCT = fcs
-#TODO FIX adam
 #plus4 also works, but needs fujinet-lib
 PLATFORMS = apple2 c64 coco
-#MSX ROM and MSDOS use fujinet-lib-experimental
+#MSX ROM, MSDOS, and Adam use fujinet-lib-experimental
 #Use make-exp <platform> to build them.
-#PLATFORMS = msxrom msdos
+#PLATFORMS = msxrom msdos adam
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
@@ -41,6 +40,11 @@ CFLAGS_EXTRA_MSXROM = -DBUILD_MSX
 # and the SCREEN 2 display comes up garbled. src/msx/joyread.asm calls the two
 # BIOS entries it needs directly instead.
 LDFLAGS_EXTRA_MSXROM += --generic-console -pragma-redirect:CRT_FONT=_font -create-app -lm
+
+# z88dk's +coleco -subtype=adam doesn't define an Adam-specific macro, so
+# supply the one all of src/adam is guarded by.
+CFLAGS_EXTRA_ADAM = -D__ADAM__
+LDFLAGS_EXTRA_ADAM += --generic-console -pragma-redirect:CRT_FONT=_font
 
 LDFLAGS_EXTRA_APPLE2 = -C src/apple2/apple2-hgr.cfg
 

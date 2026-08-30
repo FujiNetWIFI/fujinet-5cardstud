@@ -17,6 +17,7 @@
 unsigned char readJoystick();
 
 #ifdef USE_PLATFORM_SPECIFIC_INPUT
+void initPlatformKeyboardInput(void);
 int getPlatformKey(void);
 #endif
 

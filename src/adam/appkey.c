@@ -1,77 +1,36 @@
-/**
- * @brief Coleco Adam App Key Functions
- * @author Thomas Cherryhomes, Geoff Oltmans
- * @license gpl v. 3
- */
-
 #ifdef __ADAM__
-#include <eos.h>
-
-#define ADAMNET_SEND_APPKEY_READ  0xDD
-#define ADAMNET_SEND_APPKEY_WRITE 0xDE
-
-#define MAX_APPKEY_LEN 64
-
-#define ADAMNET_FUJI_DEVICE_ID 0x0F
-
 
 /**
- * @brief Open a key for reading or writing
- * @param open_mode 0 = read, 1 = write
- * @param creator_id Key creator ID: ($0000-$FFFF)
- * @param app_id The App ID ($00-$FF)
- * @param key_id The Key ID ($00-$FF)
- * @return error code
+ * @brief   Adam App Key Functions
+ * @author  Thomas Cherryhomes
+ * @email   thom dot cherryhomes at gmail dot com
+ * @license gpl v. 3, see LICENSE for details
  */
-unsigned char open_appkey(unsigned char open_mode, unsigned int creator_id, unsigned char app_id, char key_id)
+
+#include <stdint.h>
+#include <string.h>
+#include <fujinet-fuji.h>
+
+#include "../platform-specific/appkey.h"
+
+void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char *data)
 {
-  //unused in adam implementation...
-  return 0;
+    uint16_t read = 0;
+
+    fuji_set_appkey_details(creator_id, app_id, DEFAULT);
+    if (!fuji_read_appkey(key_id, &read, (uint8_t *) data))
+        read = 0;
+
+    // Terminate as a string. Callers hand us the shared tempBuffer scratch
+    // global and then strlen() it, so this has to happen even on failure or
+    // they read back whatever the previous screen left behind.
+    data[read] = 0;
 }
 
-unsigned char read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char* data)
+void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, const char *data)
 {
-  unsigned char r=0;
-  
-  struct
-  {
-    unsigned char cmd;
-    unsigned short creator;
-    unsigned char app;
-    unsigned char key;
-    char data[64];
-  } a;
-
-  a.cmd = ADAMNET_SEND_APPKEY_READ;
-  a.creator = creator_id;
-  a.app = app_id;
-  a.key = key_id;
-
-  r=eos_write_character_device(ADAMNET_FUJI_DEVICE_ID,(unsigned char *)a,sizeof(a));
-  if (r > 0x80)
-    return r;
-  else
-    return eos_read_character_device(ADAMNET_FUJI_DEVICE_ID,data,MAX_APPKEY_LEN);
-}
-
-unsigned char write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, const char *data)
-{
-  struct
-  {
-    unsigned char cmd;
-    unsigned short creator;
-    unsigned char app;
-    unsigned char key;
-    char data[64];
-  } a;
-
-  a.cmd = ADAMNET_SEND_APPKEY_WRITE;
-  a.creator = creator_id;
-  a.app = app_id;
-  a.key = key_id;
-  strncpy(a.data,data,sizeof(a.data));
-
-  return eos_write_character_device(ADAMNET_FUJI_DEVICE_ID,(unsigned char *)a,sizeof(a));
+    fuji_set_appkey_details(creator_id, app_id, DEFAULT);
+    fuji_write_appkey(key_id, strlen(data), (uint8_t *) data);
 }
 
 #endif /* __ADAM__ */

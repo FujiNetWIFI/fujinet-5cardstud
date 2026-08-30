@@ -17,6 +17,9 @@
 #include "coco/joystick.h"
 #else
 #ifdef __ADAM__
+// conio.h must be parsed before the "#define state" below: it drags in
+// z88dk's X11 headers, which declare struct members named "state".
+#include <conio.h>
 #include "adam/joystick.h"
 #else
 #ifndef __DOS__
@@ -57,6 +60,10 @@
 #endif
 
 #ifdef BUILD_MSX
+#define _Packed
+#endif
+
+#ifdef __ADAM__
 #define _Packed
 #endif
 
