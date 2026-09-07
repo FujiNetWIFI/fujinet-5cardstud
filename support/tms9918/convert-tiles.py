@@ -27,7 +27,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 CHARSET = REPO / "src/msdos/charset.h"
-OUT_DIRS = [REPO / "src/adam", REPO / "src/msx"]
+OUT_DIRS = [REPO / "src/adam", REPO / "src/msx", REPO / "src/coleco"]
 
 EXPECTED_COUNTS = {
     "ascii": 96,

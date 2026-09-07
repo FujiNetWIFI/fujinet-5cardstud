@@ -46,6 +46,22 @@ LDFLAGS_EXTRA_MSXROM += --generic-console -pragma-redirect:CRT_FONT=_font -creat
 CFLAGS_EXTRA_ADAM = -D__ADAM__
 LDFLAGS_EXTRA_ADAM += --generic-console -pragma-redirect:CRT_FONT=_font
 
+# ColecoVision cartridge. z88dk puts -D__COLECO__ in the target-wide OPTIONS
+# line, so the Adam subtype defines it too -- __COLECO__ alone does not mean
+# ColecoVision. src/coleco is therefore guarded by BUILD_COLECO, the same way
+# src/msx is, and src/platform-specific/input.h can keep including every
+# platform's vars.h unconditionally.
+CFLAGS_EXTRA_COLECO = -DBUILD_COLECO
+# The console has 1K of RAM and the BIOS owns both ends of it. These two are
+# the layout fujinet-firmware/pico/coleco/build.sh proved out: $7000-$702B is
+# the cartridge header's own tables, $73B9-$73FF is BIOS scratch, and what is
+# left -- 908 bytes -- has to hold BSS, DATA and the C stack. -m leaves a map
+# next to the image so that total can actually be read off.
+LDFLAGS_EXTRA_COLECO += --generic-console -pragma-redirect:CRT_FONT=_font -m \
+  -pragma-define:CRT_ORG_BSS=0x702C \
+  -pragma-define:REGISTER_SP=0x73B8 \
+  -pragma-define:CLIB_FOPEN_MAX=0
+
 LDFLAGS_EXTRA_APPLE2 = -C src/apple2/apple2-hgr.cfg
 
 # CoCo 3 build: same sources as CoCo 1/2, compiled with -DCOCO3 for the
@@ -87,6 +103,39 @@ include mekkogx/toplevel-rules.mk
 
 msdos/disk-post::
 	mcopy -t -i $(DISK) src/msdos/AUTOEXEC.BAT "::AUTOEXEC.BAT"
+
+# ColecoVision: headless smoke test in MAME's coleco driver, against a live
+# fujinet-pc (the cartridge device dials its BoIP listener on 127.0.0.1:9995).
+# MAME resolves rompath, pluginspath and its Lua search path against its OWN
+# working directory, so it is run from the MAME tree and everything handed to
+# it is absolute -- run it from anywhere else and -autoboot_script is ignored
+# silently. That tree needs fujinet-firmware/pico/coleco/emu/apply.sh run
+# against it once for -cartslot fujinet to exist.
+#
+#   make coleco-smoke                        print the screen
+#   make coleco-smoke EXPECT="5 CARD STUD"   and assert on it
+#   make coleco-smoke SCRIPT="fire,fire"     drive the controller first
+#   make coleco-smoke AT=20                  settle longer before sampling
+#   make coleco-smoke SETTLE=12 SCRIPT=fire  wait longer before the first press
+MAME_DIR    ?= $(HOME)/Workspace/mame
+COLECO_ROM  := $(CURDIR)/r2r/coleco/$(PRODUCT).rom
+AT          ?= 8
+EXPECT      ?=
+SCRIPT      ?=
+# Each scripted press costs a hold plus a gap; 3s of settle before the first.
+SETTLE      ?= 8
+SECS        ?= $(shell echo $$(( $(AT) + $(SETTLE) + 2 + $(words $(subst $(comma), ,$(SCRIPT))) )))
+comma       := ,
+
+.PHONY: coleco-smoke
+
+coleco-smoke: $(COLECO_ROM)
+	cd $(MAME_DIR) && \
+	FCS_FONT=$(CURDIR)/src/coleco/font.bin FCS_AT=$(AT) FCS_EXPECT="$(EXPECT)" \
+	FCS_SCRIPT="$(SCRIPT)" FCS_SETTLE=$(SETTLE) \
+	./mame coleco -cartslot fujinet -cart $(COLECO_ROM) \
+	    -video none -sound none -nothrottle -seconds_to_run $(SECS) \
+	    -autoboot_script $(CURDIR)/support/coleco/smoke.lua
 
 # CoCo targets:
 #   make coco        → CoCo 1/2 build

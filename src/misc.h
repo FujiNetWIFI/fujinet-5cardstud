@@ -22,9 +22,15 @@
 #include <conio.h>
 #include "adam/joystick.h"
 #else
+#ifdef BUILD_COLECO
+// Same z88dk conio ordering hazard as the Adam, same reason.
+#include <conio.h>
+#include "coleco/joystick.h"
+#else
 #ifndef __DOS__
 #include <conio.h>
 #endif /* __DOS__ */
+#endif /* BUILD_COLECO */
 #endif /* __ADAM__ */
 #endif /* _CMOC_VERSION_ */
 #include "platform-specific/graphics.h"
@@ -64,6 +70,10 @@
 #endif
 
 #ifdef __ADAM__
+#define _Packed
+#endif
+
+#ifdef BUILD_COLECO
 #define _Packed
 #endif
 
@@ -126,12 +136,41 @@ extern unsigned char noAnim, doAnim, finalFlip, inputTrigger;
 #else
 extern bool noAnim, doAnim, finalFlip, inputTrigger;
 #endif /* _CMOC_VERSION_ */
-extern char tempBuffer[128];
-extern char query[50];
+/*
+  Scratch buffer sizes. The ColecoVision has 1K of RAM in total, so these are
+  cut to what each one actually has to hold rather than to a round number.
+  tempBuffer cannot go below MAX_APPKEY_LEN+1: screens.c reads app keys into it.
+*/
+#ifdef BUILD_COLECO
+#define TEMP_BUFFER_LEN 68
+#define QUERY_LEN       24
+#define URL_BUFFER_LEN  96
+#else
+#define TEMP_BUFFER_LEN 128
+#define QUERY_LEN       50
+#define URL_BUFFER_LEN  128
+#endif
+
+extern char tempBuffer[TEMP_BUFFER_LEN];
+extern char query[QUERY_LEN];
 extern char playerName[12];
 extern char serverEndpoint[50];
 
+#ifdef BUILD_COLECO
+/*
+  The ColecoVision has 1K of RAM and this union is 418 bytes of it, so the
+  state is never copied down: it is read in place out of the cartridge's reply
+  window, which is what that window is 1K and addressable for. See
+  src/coleco/vars.h and src/coleco/network.c.
+
+  It is therefore READ-ONLY -- a store here goes nowhere, the cartridge cannot
+  even see a write cycle -- and it is valid only until the next fuji_* call of
+  any kind, because every transaction repaints the window.
+*/
+#define clientState (*(ClientState *) COLECO_REPLY_WINDOW)
+#else
 extern ClientState clientState;
+#endif
 //extern GameState state;
 #define state clientState.game
 
@@ -144,7 +183,10 @@ extern char *hand, *requestedMove;
 extern char prefs[4];
 
 
-// Screen specific player/bet coordinates
+// Screen specific player/bet coordinates. These are declared by each platform's
+// own vars.h as well; the ColecoVision makes them const so they land in ROM
+// rather than spending 96 bytes of a 1K machine on tables nobody writes.
+#ifndef BUILD_COLECO
 extern unsigned char playerXMaster[] ;
 extern unsigned char playerYMaster[] ;
 extern char playerDirMaster[] ;
@@ -155,6 +197,7 @@ extern char playerBetYMaster[] ;
 // These refer to index positions in the Master arrays above
 // Downside is new players will cause existing player positions to move.
 extern char playerCountIndex[] ;
+#endif
 
 void pause(unsigned char frames);
 void clearCommonInput();

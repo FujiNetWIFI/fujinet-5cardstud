@@ -18,7 +18,7 @@
 #include <conio.h>
 #endif
 
-char urlBuffer[128];
+char urlBuffer[URL_BUFFER_LEN];
 
 unsigned char apiCall(const char *path) {
 #ifndef __CBM__
@@ -39,7 +39,10 @@ unsigned char apiCall(const char *path) {
   strcat(urlBuffer, query[0] ? "&bin=1" QUERY_SUFFIX : "?bin=1" QUERY_SUFFIX);
   //printf(urlBuffer);
   //printf("\r\n");
-  return getResponse(urlBuffer, &clientState.firstByte, sizeof(clientState.game));
+  // sizeof(Game), not sizeof(clientState.game): on the ColecoVision clientState
+  // is a macro for a cast-and-dereference of the cartridge reply window, and
+  // sccz80 will not take sizeof() of that expression.
+  return getResponse(urlBuffer, &clientState.firstByte, sizeof(Game));
 
 }
 

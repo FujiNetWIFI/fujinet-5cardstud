@@ -30,12 +30,16 @@
 char serverEndpoint[50] = "https://5card.carr-designs.com/";
 //char serverEndpoint[50] = "http://127.0.0.1:8080/"; // "N: for apple, but not C64"
 
-char query[50] = "";//&player=ERICAPL2";
+char query[QUERY_LEN] = "";//&player=ERICAPL2";
 char playerName[12] = ""; // "eric";
 //char playerName[12] = "ericmsx";
 
 //GameState state;
+// On the ColecoVision this is a macro for the cartridge's reply window, not an
+// object -- see src/misc.h.
+#ifndef BUILD_COLECO
 ClientState clientState;
+#endif
 
 
 // State helper vars
@@ -54,7 +58,7 @@ signed char playerBetX[8], playerBetY[8], playerDir[8];
 
 // Common local scope temp variables
 unsigned char h, i, j, k, x, y, xx;
-char tempBuffer[128];
+char tempBuffer[TEMP_BUFFER_LEN];
 
 char prefs[4];
 
