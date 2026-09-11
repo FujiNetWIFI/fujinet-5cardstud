@@ -13,6 +13,8 @@
 ; "??" is a hole card.
 ; ---------------------------------------------------------------------------
 
+SGFTY	EQU DORGY+8*DCELLH	; the footer's pixel row
+
 ; SGAME -- the poll loop.
 SGAME:	ENTER
 	LI CVAL3
@@ -82,9 +84,10 @@ SGBAD:	LI 0EEH
 	ST
 	JMP FAIL
 
-SGDRAW:	PI SGTITLE
+SGDRAW:		PI SGTITLE
 	PI SGROWS
 	PI SGFOOT
+
 
 	; hold the picture for a moment, watching for input, then poll again
 	LI 60
@@ -110,6 +113,12 @@ SGKEY:	CI EV_DOWN
 	BNZ SGK1
 	JMP SGMVDN
 SGK1:	CI EV_UP
+	BNZ SGK1A
+	JMP SGMVUP
+SGK1A:	CI EV_RIGHT
+	BNZ SGK1B
+	JMP SGMVDN
+SGK1B:	CI EV_LEFT
 	BNZ SGK2
 	JMP SGMVUP
 SGK2:	CI EV_SEL
@@ -239,26 +248,178 @@ SGTITLE: ENTER
 	PI DFILL
 	LEAVE
 
-; SGFOOT -- the highlighted valid move, or whose turn it is.
+; SGFOOT -- every legal move on one line, the selected one in the accent
+;   colour, so you can see what else you could do and not only what is about to
+;   be sent. Names run left to right a space apart and the last one is clipped
+;   at the edge of the line rather than wrapping: the server's longest name is
+;   "Raise 5" and it offers at most three at once, so the clip is a guard, not
+;   the common case.
+;
+;   The cell counters here are all under 24, so the signed compares are safe --
+;   the carry-not-sign rule bites only once a value can pass 127.
+;   Reached by PI; calls one level down.
 SGFOOT:	ENTER
+	LI UICOLS
+	LR 0,A
+	LI DORGX
+	LR 1,A
+	LI SGFTY
+	LR 2,A
+	PI DCLRR
+
 	DCI FNREPLY+GNMOVE
 	LM
 	CI 0
 	BNZ SGF1
 	LI CVAL1
 	LR 3,A
+	LI DORGX
+	LR 1,A
+	LI SGFTY
+	LR 2,A
 	DCI SGTHEIRS
-	XDC
-	PI UIFOOT
-	LEAVE
-SGF1:	PI SGMVNAME		; DC1 = the selected move's name
-	LI CVAL2
-	LR 3,A
-	PI UIFOOT
+	PI DSTR
 	LEAVE
 
-; SGMVOFF -- DC0 = FNREPLY + GMOVES + VMVSEL*GMVSTR. Leaf. Clobbers A, r4.
-SGMVOFF: DCI VMVSEL
+	; The list changes every turn -- three moves this time, two the next --
+	; so a selection carried over from the last one can point past the end,
+	; and SGMVCODE would then copy whatever follows the table.
+SGF1:	DCI VMVSEL
+	LM
+	LR 5,A
+	DCI FNREPLY+GNMOVE
+	LM
+	LR 4,A
+	LR A,5
+	COM
+	INC
+	AS 4			; count - sel
+	BZ SGF1R
+	BM SGF1R
+	BR SGF1K
+SGF1R:	CLR
+	DCI VMVSEL
+	ST
+
+SGF1K:	CLR
+	DCI VMVI
+	ST
+	CLR
+	DCI VMVCOL
+	ST
+
+SGF2:	DCI VMVI
+	LM
+	LR 4,A
+	DCI FNREPLY+GNMOVE
+	LM
+	XS 4
+	BNZ SGF2A
+
+	; The loop body is well past the +/-127 a relative branch reaches, so the
+	; three ways out of it share one trampoline.
+SGFXJ:	JMP SGFX		; every move drawn, or the line is full
+
+SGF2A:	DCI VMVCOL
+	LM
+	LR 6,A
+	CI UICOLS
+	BZ SGFXJ
+	BM SGFXJ
+	LR A,6
+	COM
+	INC
+	AI UICOLS
+	LR 6,A			; cells left -- in r6, which SGMVOFF does not eat
+
+	PI SGMVOFF
+	LIS 3
+	ADC			; step over code[3] to the name
+	XDC
+	DCI VMVBUF
+	XDC			; DC0 = the name, DC1 = the buffer
+	LR A,6
+	LR 4,A			; characters still allowed
+	CLR
+	LR 5,A			; characters copied
+
+SGF3:	LR A,4
+	CI 0
+	BZ SGF4			; no room left: clip the name here
+	LM
+	CI 0
+	BZ SGF4			; end of the name
+	; The wire sends the names lower case -- "fold", "raise 5" -- and this
+	; font's lower case is the uppercase glyph squashed into four rows, so
+	; they would sit a row short of everything else while the digit in
+	; "raise 5" stood full height next to them. Fold to upper case. CI
+	; computes (immediate - A), so BP means A <= the immediate.
+	CI 60H			; 'a'-1
+	BP SGF3S
+	CI 7AH			; 'z'
+	BM SGF3S
+	AI 0E0H			; -20H
+SGF3S:	XDC
+	ST
+	XDC
+	LR A,5
+	INC
+	LR 5,A
+	DS 4
+	BR SGF3
+
+SGF4:	XDC
+	CLR
+	ST
+	XDC
+	LR A,5
+	DCI VMVLEN
+	ST			; DSTR eats r4-r8, so the length goes to RAM
+
+	LI CVAL3
+	LR 3,A
+	DCI VMVI
+	LM
+	LR 6,A
+	DCI VMVSEL
+	LM
+	XS 6
+	BNZ SGF5
+	LI CVAL2
+	LR 3,A			; the one FIRE will send
+
+SGF5:	DCI VMVCOL
+	LM
+	SL 1
+	SL 1
+	AI DORGX
+	LR 1,A
+	LI SGFTY
+	LR 2,A
+	DCI VMVBUF
+	PI DSTR
+
+	DCI VMVLEN
+	LM
+	INC
+	LR 4,A			; the name plus one space
+	DCI VMVCOL
+	LM
+	AS 4
+	DCI VMVCOL
+	ST
+	DCI VMVI
+	LM
+	INC
+	DCI VMVI
+	ST
+	JMP SGF2
+SGFX:	LEAVE
+
+; SGMVOFF -- DC0 = FNREPLY + GMOVES + VMVI*GMVSTR. The index is VMVI rather
+;   than VMVSEL so SGFOOT can walk the whole list with it.
+;   Leaf. Clobbers A, r4.
+SGMVOFF: DCI VMVI
 	LM
 	LR 4,A
 	DCI FNREPLY+GMOVES
@@ -271,33 +432,42 @@ SGMO1:	LI GMVSTR
 	BNZ SGMO1
 SGMOX:	POP
 
-; SGMVNAME -- DC1 = the selected move's name (code[3] then name[10]). Leaf.
-SGMVNAME: ENTER
-	PI SGMVOFF
-	LIS 3
-	ADC
-	XDC
-	LEAVE
-
-; SGMVCODE -- copy the selected move's code into VMOVE. Leaf-plus-one.
+; SGMVCODE -- copy the selected move's code into VMOVE.
+;
+;   The codes are two characters in a 3-byte field -- CA, FO, RA, CH, BB, BL --
+;   and BLDURL builds /move/<code>?table=... from VMOVE. An empty VMOVE
+;   therefore asks for /move/? , which the server answers 404 and acts on not
+;   at all: the next /state still says it is your turn. That is what "I chose
+;   call and it kept asking me to input a move" was.
+;
+;   The copy below used to XDC BEFORE the LM, which reads the destination and
+;   writes the source -- so it copied VMOVE over the reply window (which the
+;   cart will not let the console write anyway) and left VMOVE empty. Read the
+;   source first, exactly as SGPLINE does.
+;   Reached by PI; calls one level down.
 SGMVCODE: ENTER
-	PI SGMVOFF
+	DCI VMVSEL
+	LM
+	DCI VMVI
+	ST
+	PI SGMVOFF		; DC0 = the move record, at its code
 	XDC
 	DCI VMOVE
-	XDC
+	XDC			; DC0 = the code, DC1 = VMOVE
 	LIS 3
 	LR 4,A
-SGMC1:	XDC
-	LM
-	XDC
+SGMC1:	LM			; the SOURCE first
 	CI 0
 	BZ SGMC2
+	XDC
 	ST
+	XDC
 	DS 4
 	BNZ SGMC1
-SGMC2:	DCI VMOVE+2
+SGMC2:	XDC
 	CLR
-	ST
+	ST			; terminate where the copy actually stopped
+	XDC
 	LEAVE
 
 ; SGROWS -- one row per player. Reached by PI; calls two levels down.

@@ -58,6 +58,24 @@ level, not by one interior pixel: the spade widens downward to a solid row and
 necks into a 1px stem, the club narrows downward from a notched shoulder. One
 pixel of difference would not survive composite video.
 
+### The footer
+
+Every legal move is on the footer line at once, left to right a space apart,
+with the selected one in the accent colour -- stick left/right or up/down moves
+between them, FIRE sends. The server's longest name is "Raise 5" and it offers
+at most three at a time, so the worst real case is 17 of the 23 cells; a name
+that would run off the end is clipped rather than wrapped, and a move that
+cannot start is dropped.
+
+The names arrive lower case (`fold`, `raise 5`) and are folded to upper case on
+the way out. This font's lower case is the uppercase glyph squashed into four
+rows, so left alone the words sat a row short of everything else on screen
+while the digit in "raise 5" stood full height right next to them.
+
+The selection is also clamped against `validMoveCount` on every repaint: the
+list changes every turn -- three moves this time, two the next -- and a
+selection carried over from the last one would otherwise index past the table.
+
 ### The purse is right-aligned
 
 `DEC5` suppresses leading zeros and emits one to five characters. A
@@ -105,6 +123,16 @@ printed as `0`.
 
 **`PI` and `JMP` clobber the accumulator**, and `LEAVE` ends with a `PI`. No
 value survives a call in A.
+
+**The XDC dance has a direction, and getting it backwards is silent.** The
+two-data-counter copy idiom is `LM` (read the source) then `XDC / ST / XDC`
+(write the destination). `SGMVCODE` did the first `XDC` *before* the `LM`, so it
+read the destination and wrote the source -- copying an empty `VMOVE` over the
+reply window, which the cart will not let the console write anyway. Nothing
+faulted. `BLDURL` then asked for `/move/?table=...`, the server answered 404,
+and the next `/state` still said it was your turn: choosing CALL looked like it
+did nothing at all, over and over. A copy loop that writes the wrong way round
+cannot be seen in a register dump -- only in what came out the far end.
 
 **Draw routines write most of the register file**, so an error code parked in
 r1 comes back as part of a screen coordinate. Codes go in RAM.

@@ -53,6 +53,10 @@ VCSUI	EQU 0802AH		; its suit -- MUST be VCRNK+1: SGHAND stores both
 				; after a single DCI
 VCCOL	EQU 0802BH		; the suit's colour, carried across two fills
 VCEND	EQU 0802CH		; the hand's NUL has been reached
+VMVI	EQU 0802DH		; the move SGMVOFF indexes, 0..4
+VMVCOL	EQU 0802EH		; the footer's running cell
+VMVLEN	EQU 0802FH		; characters of the move name actually drawn
+VMVBUF	EQU 080C0H		; one move name, clipped to the line
 VNTBL	EQU 0801AH		; tables the lobby found
 VTTOP	EQU 0801BH		; first table shown
 VEDX	EQU 0801CH		; keyboard cursor
