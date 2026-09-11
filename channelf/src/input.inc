@@ -29,6 +29,8 @@ EV_PGUP	EQU 5
 EV_PGDN	EQU 6
 EV_COPY	EQU 7
 EV_INFO	EQU 8
+EV_LEFT	EQU 9
+EV_RIGHT EQU 10
 
 ; ---------------------------------------------------------------------------
 ; INSCAN -- poll everything and return ONE edge-triggered event in r0.
@@ -80,6 +82,12 @@ INSCAN:	CLR
 	NI 004H			; stick down
 	BNZ INDN
 	LR A,0
+	NI 002H			; stick left
+	BNZ INLT
+	LR A,0
+	NI 001H			; stick right
+	BNZ INRT
+	LR A,0
 	NI 080H			; plunger: select
 	BNZ INSEL
 	LR A,2
@@ -107,6 +115,12 @@ INUP:	LI EV_UP
 	LR 0,A
 	POP
 INDN:	LI EV_DOWN
+	LR 0,A
+	POP
+INLT:	LI EV_LEFT
+	LR 0,A
+	POP
+INRT:	LI EV_RIGHT
 	LR 0,A
 	POP
 INSEL:	LI EV_SEL

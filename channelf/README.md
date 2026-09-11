@@ -5,7 +5,7 @@ core cannot fit these machines, so the game is written to them.
 
     make            # -> build/5card.bin, 16384 bytes
 
-**4,767 bytes** in a 16K window, next to the Arcadia port's 4,509 for the same
+**4,825 bytes** in a 16K window, next to the Arcadia port's 4,509 for the same
 job. Verified against the live server at `5card.carr-designs.com`:
 `emu/5carddrive.lua` in the firmware tree types a name on the on-screen
 keyboard, commits it, lists the real tables, sits down, and renders a live
