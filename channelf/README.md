@@ -5,6 +5,35 @@ core cannot fit these machines, so the game is written to them.
 
     make            # -> build/5card.bin, 16384 bytes
 
+## The assembler
+
+Macro Assembler AS, by Alfred Arnold -- the same one the Arcadia (2650) and
+Odyssey&sup2; (8048) ports use. It is not packaged for Arch, and there is no
+AUR package either, so build it:
+
+    curl -O http://john.ccac.rwth-aachen.de:8000/ftp/as/source/c_version/asl-current.tar.gz
+    tar xzf asl-current.tar.gz && cd asl-current
+    cp Makefile.def-samples/Makefile.def-x86_64-unknown-linux Makefile.def
+    make -j$(nproc)
+    mkdir -p ~/asl && cp asl p2bin ~/asl/
+
+Those two binaries are the whole installation -- no `make install`, no root,
+and the message catalogs are not needed. `build.sh` looks in `~/asl` by
+default and both paths are overridable:
+
+    ASL=/somewhere/asl P2BIN=/somewhere/p2bin make
+
+`asl-current` is the 1.42 beta line, which is what this port is built with. The
+tarball is served over plain HTTP; the stable 1.41 releases sit beside it in
+the same directory if you would rather pin one. Build 306 and build 311 both
+produce a byte-identical ROM here, so the exact build does not matter.
+
+**6,244 bytes** in a 16K window, next to the Arcadia port's 4,509 for the same
+job. Verified against the live server at `5card.carr-designs.com`:
+`emu/5carddrive.lua` in the firmware tree types a name on the on-screen
+keyboard, commits it, lists the real tables, sits down, and renders a live
+seven-player hand.
+
 ## What is different here
 
 RAM is not the constraint. The Arcadia client runs in 84 bytes and the
