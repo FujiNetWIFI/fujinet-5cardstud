@@ -14,6 +14,9 @@
 ; ---------------------------------------------------------------------------
 
 SGFTY	EQU DORGY+8*DCELLH	; the footer's pixel row
+SGSCDIV	EQU 3			; SGWAIT2 ticks between marquee steps: a tick is about
+				; 70 ms, so this is a character every fifth of a second
+SGHOLD	EQU 2			; polls the end-of-hand banner stays up
 
 ; SGAME -- the poll loop.
 SGAME:	ENTER
@@ -84,10 +87,12 @@ SGBAD:	LI 0EEH
 	ST
 	JMP FAIL
 
-SGDRAW:		PI SGTITLE
+SGDRAW:	PI SGCUES		; before the draw: it owns the round edge, and the
+				; footer needs the marquee reset that comes with it
+	PI SGTITLE
 	PI SGROWS
 	PI SGFOOT
-
+	PI SGTURN		; and after: the your-turn cue follows the picture
 
 	; hold the picture for a moment, watching for input, then poll again
 	LI 60
@@ -100,6 +105,7 @@ SGWAIT2: PI INSCAN
 	LIS 8
 	LR 3,A
 	PI DELAYMS
+	PI SGSCRL		; step the result marquee, if one is running
 	DCI VPOLL
 	LM
 	AI 0FFH
@@ -165,7 +171,8 @@ SGSEND:	DCI FNREPLY+GNMOVE
 	CI 0
 	BNZ SGSND1
 	JMP SGWAIT2
-SGSND1:	PI SGMVCODE		; VMOVE = the two-character code
+SGSND1:	PI SNDSEL
+	PI SGMVCODE		; VMOVE = the two-character code
 	LI REQMOVE
 	DCI VREQ
 	ST
@@ -248,6 +255,173 @@ SGTITLE: ENTER
 	PI DFILL
 	LEAVE
 
+; ---------------------------------------------------------------------------
+; SGCUES -- the round edge. Resets the result marquee, because the round edge
+; is exactly when the message it scrolls has changed, and queues the cue for
+; SGTURN to play once the picture is up.
+;   Reached by PI; calls one level down.
+; ---------------------------------------------------------------------------
+SGCUES:	ENTER
+	; age the result banner -- see below for why it is held rather than shown
+	; only while the server happens to be in the showdown
+	DCI VLRHOLD
+	LM
+	CI 0
+	BZ SGCU0
+	AI 0FFH
+	DCI VLRHOLD
+	ST
+
+SGCU0:	DCI FNREPLY+GROUND
+	LM
+	LR 5,A			; the round now
+	DCI VPROUND
+	LM
+	LR 6,A			; the round last time
+	LR A,5
+	XS 6
+	BZ SGCUX		; the round did not move; the message still might have
+	LR A,5
+	DCI VPROUND
+	ST
+
+	; The round edge means a card hit the table.
+	LIS 1
+	DCI VCUEQ
+	ST
+
+	; A hand ending is a different signal, and the round cannot carry it. At
+	; a small table where everyone folds, the server finishes the hand and
+	; deals the next one without the round ever leaving 1 -- there is no edge
+	; to see. Even at a full table the showdown can fall between two polls,
+	; which are four seconds apart. What always changes is lastResult itself,
+	; so that is what is watched: a checksum over it, because the winner's
+	; name is often the same from hand to hand and only the hand description
+	; differs. A checksum can collide, in which case one banner is missed;
+	; comparing 80 bytes every poll to avoid that is not worth it.
+SGCUX:	DCI FNREPLY+GLAST
+	CLR
+	LR 4,A			; running sum
+	LI 80
+	LR 5,A			; lastResult is 81 bytes and need not be terminated
+SGCK1:	LM
+	CI 0
+	BZ SGCK2
+	AS 4
+	LR 4,A
+	DS 5
+	BNZ SGCK1
+SGCK2:	DCI VLRSUM
+	LM
+	XS 4
+	BZ SGCKX		; the same message we already had
+	LR A,4
+	DCI VLRSUM
+	ST
+
+	LI SGHOLD
+	DCI VLRHOLD
+	ST
+	CLR
+	DCI VLRPOS
+	ST			; a new message: start the marquee over
+	LI SGSCDIV
+	DCI VLRTIK
+	ST
+	LIS 2
+	DCI VCUEQ
+	ST			; the hand-over cue outranks the deal cue
+SGCKX:	LEAVE
+
+; ---------------------------------------------------------------------------
+; SGTURN -- play what SGCUES queued, then the your-turn cue. Runs AFTER the
+;   draw, so a cue never delays the picture it belongs to.
+;   Reached by PI; calls one level down.
+; ---------------------------------------------------------------------------
+SGTURN:	ENTER
+	; whatever SGCUES queued, now that the picture is up
+	DCI VCUEQ
+	LM
+	LR 5,A
+	CLR
+	DCI VCUEQ
+	ST
+	LR A,5
+	CI 1
+	BNZ SGTU1
+	PI SNDDEAL
+	BR SGTU2
+SGTU1:	CI 2
+	BNZ SGTU2
+	PI SNDEND
+
+	; The your-turn cue, on the EDGE where the server starts offering moves:
+	; /state is polled about once a second and it stays your turn for many
+	; polls, so on the level it would machine-gun.
+SGTU2:	DCI FNREPLY+GNMOVE
+	LM
+	LR 5,A
+	DCI VPNMV
+	LM
+	LR 6,A
+	LR A,5
+	DCI VPNMV
+	ST
+	LR A,5
+	CI 0
+	BZ SGTUX		; no moves now
+	LR A,6
+	CI 0
+	BNZ SGTUX		; there were moves last time too: not an edge
+	PI SNDTRN
+SGTUX:	LEAVE
+
+; ---------------------------------------------------------------------------
+; SGSCRL -- step the end-of-hand marquee one character.
+;
+; The message runs to about 45 characters -- "Hulk BOT won with Pair, Kings" is
+; 29 -- against a line 23 cells wide, so it is scrolled rather than cut: the
+; interesting half is the end. VLRON says a result is on screen at all, and
+; SGFOOT stops advancing once the tail is visible, so it scrolls once and then
+; holds rather than looping forever under the showdown.
+;   Reached by PI; calls one level down.
+; ---------------------------------------------------------------------------
+SGSCRL:	ENTER
+	DCI VLRON
+	LM
+	CI 0
+	BZ SGSCX
+	DCI VLRTIK
+	LM
+	AI 0FFH
+	DCI VLRTIK
+	ST
+	CI 0
+	BNZ SGSCX
+	LI SGSCDIV
+	DCI VLRTIK
+	ST
+
+	; one more character, unless the end of the message is already on screen
+	DCI VLRPOS
+	LM
+	AI UICOLS
+	LR 5,A
+	DCI VLRLEN
+	LM
+	COM
+	INC
+	AS 5			; (pos + UICOLS) - len
+	BM SGSC1
+	LEAVE			; the tail is showing: hold here
+SGSC1:	DCI VLRPOS
+	LM
+	INC
+	DCI VLRPOS
+	ST
+	PI SGFOOT
+SGSCX:	LEAVE
+
 ; SGFOOT -- every legal move on one line, the selected one in the accent
 ;   colour, so you can see what else you could do and not only what is about to
 ;   be sent. Names run left to right a space apart and the last one is clipped
@@ -270,7 +444,27 @@ SGFOOT:	ENTER
 	DCI FNREPLY+GNMOVE
 	LM
 	CI 0
-	BNZ SGF1
+	BZ SGF0
+	JMP SGF1		; the result branch below outgrew a relative branch
+
+	; No moves offered. The server leaves lastResult holding the PREVIOUS
+	; hand's winner for the whole of the next hand, so showing it whenever
+	; the menu is down would park a stale banner on screen all hand long. It
+	; is the news only just after a hand has ended.
+SGF0:	CLR
+	DCI VLRON
+	ST
+	DCI VLRHOLD
+	LM
+	CI 0
+	BNZ SGFRES		; a hand ended in the last poll or two
+	DCI FNREPLY+GROUND
+	LM
+	CI 0
+	BZ SGFRES		; between hands
+	CI 4
+	BM SGFRES		; CI is (immediate - A), so BM here means round > 4
+
 	LI CVAL1
 	LR 3,A
 	LI DORGX
@@ -281,10 +475,77 @@ SGFOOT:	ENTER
 	PI DSTR
 	LEAVE
 
-	; The list changes every turn -- three moves this time, two the next --
-	; so a selection carried over from the last one can point past the end,
-	; and SGMVCODE would then copy whatever follows the table.
-SGF1:	DCI VMVSEL
+	; Measure the message first: SGSCRL needs to know when the tail has come
+	; into view so it can stop rather than scroll off the end.
+SGFRES:	DCI FNREPLY+GLAST
+	CLR
+	LR 4,A
+SGFR1:	LM
+	CI 0
+	BZ SGFR2
+	LR A,4
+	INC
+	LR 4,A
+	CI 80
+	BZ SGFR2		; lastResult is 81 bytes and need not be terminated
+	BR SGFR1
+SGFR2:	LR A,4
+	DCI VLRLEN
+	ST
+	CI 0
+	BZ SGFRX		; nothing to say
+	LIS 1
+	DCI VLRON
+	ST
+
+	DCI VLRPOS
+	LM
+	LR 5,A
+	DCI FNREPLY+GLAST
+	LR A,5
+	ADC			; the window starts VLRPOS into the message
+	XDC
+	DCI VMVBUF
+	XDC			; DC0 = the message, DC1 = the buffer
+	LI UICOLS
+	LR 4,A
+SGFR3:	LR A,4
+	CI 0
+	BZ SGFR4
+	LM
+	CI 0
+	BZ SGFR4
+	CI 60H			; 'a'-1: fold to upper case, as the move names are
+	BP SGFR3S
+	CI 7AH
+	BM SGFR3S
+	AI 0E0H
+SGFR3S:	XDC
+	ST
+	XDC
+	DS 4
+	BR SGFR3
+SGFR4:	XDC
+	CLR
+	ST
+	XDC
+	LI CVAL2
+	LR 3,A
+	LI DORGX
+	LR 1,A
+	LI SGFTY
+	LR 2,A
+	DCI VMVBUF
+	PI DSTR
+SGFRX:	LEAVE
+
+	; The list changes every turn -- three moves this time, two the next -- so a
+	; selection carried over from the last one can point past the end, and
+	; SGMVCODE would then copy whatever follows the table.
+SGF1:	CLR
+	DCI VLRON
+	ST
+	DCI VMVSEL
 	LM
 	LR 5,A
 	DCI FNREPLY+GNMOVE

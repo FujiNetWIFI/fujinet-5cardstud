@@ -76,6 +76,62 @@ The selection is also clamped against `validMoveCount` on every repaint: the
 list changes every turn -- three moves this time, two the next -- and a
 selection carried over from the last one would otherwise index past the table.
 
+### Sound
+
+Sound is two bits at the top of port 5 -- the same port that carries the VRAM
+row, which is why every draw routine read-modify-writes it rather than storing
+a row outright. Three tones, no volume, no duration: the hardware rings the
+tone and an RC decay kills it with a half-life of about 9 ms, so every cue is a
+blip whatever you do.
+
+Two things follow, and both are load-bearing. A tone never has to be switched
+off and nothing has to wait for it, which is what makes a key click affordable
+inside `INSCAN` -- a leaf that runs every 8 ms in a dozen polling loops, and
+which now funnels its ten exits through one `INOUT` so the click costs one copy
+of itself. And the hardware retriggers only when the mode CHANGES, so `SNDCUE`
+writes silence before every tone or the second of two identical blips is
+inaudible.
+
+    click     1000 Hz          every accepted keypress, on every screen
+    deal      low buzz         the round advanced
+    your turn 3 notes rising   the server is offering you moves
+    sent      2 notes rising   a move went out
+    hand over 3 notes falling  the mirror of your-turn, so the two never blur
+
+Cues are queued by `SGCUES` and played by `SGTURN` *after* the draw: a cue is
+the best part of a fifth of a second of blocking delay, and played on the spot
+it would run before the cards it is announcing were on screen. The your-turn
+cue fires on the EDGE where moves start being offered -- on the level it would
+machine-gun, since it stays your turn for many polls.
+
+`SNDGAP` is in `DELAYMS` units, which are not milliseconds. Measured off a
+recording from the emulator, one unit is about 9 ms. `DELAYMS` says on the tin
+that it is approximate; it was calibrated by what the poll loop wanted.
+
+### The end-of-hand banner
+
+When no moves are offered the footer carries the result of the last hand,
+folded to upper case and scrolled: "Hulk BOT won with Two Pair, Aces over
+Kings" is 43 characters against a line 23 cells wide, and the interesting half
+is the end. It scrolls a character every fifth of a second and then holds once
+the tail is in view, rather than looping.
+
+**What triggers it is the message changing, not the round.** The obvious
+trigger -- round 5, the showdown -- is wrong twice over. At a small table where
+everyone folds, the server finishes the hand and deals the next one without the
+round ever leaving 1, so there is no edge to see at all; and even at a full
+table the showdown can fall between two polls, which are four seconds apart.
+Watching `lastResult` itself catches both. It is compared by checksum, because
+the winner's name is often the same from hand to hand and only the description
+differs; a collision costs one missed banner, which is not worth 80 bytes of
+comparison every poll.
+
+The banner is then held for a couple of polls rather than shown only while the
+server happens to be in the end state. The rest of the time the footer says
+WAITING -- the server leaves `lastResult` holding the previous hand's winner
+for the whole of the next hand, so showing it whenever the menu is down would
+park a stale banner on screen all hand long.
+
 ### The purse is right-aligned
 
 `DEC5` suppresses leading zeros and emits one to five characters. A

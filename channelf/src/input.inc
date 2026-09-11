@@ -33,7 +33,8 @@ EV_LEFT	EQU 9
 EV_RIGHT EQU 10
 
 ; ---------------------------------------------------------------------------
-; INSCAN -- poll everything and return ONE edge-triggered event in r0.
+; INSCAN -- poll everything and return ONE edge-triggered event in r0, and
+;   click if there was one (see INOUT at the bottom; r8 is clobbered for it).
 ;   Edge-triggered: a held direction fires once. There is no auto-repeat, and
 ;   with nine rows on screen nothing needs one.
 ;   Clobbers A, r0, r1, r2, r3, DC0.
@@ -111,33 +112,41 @@ INSCAN:	CLR
 	CLR
 	LR 0,A
 	POP
+
+; INOUT -- every real event leaves through here, so the key click costs one
+;   copy of itself rather than ten. SNDCUE is inlined rather than called
+;   because INSCAN is a leaf reached by PI from a dozen polling loops, and
+;   giving it an ENTER would push every screen a K-level deeper.
+;
+;   Nothing waits: the tone rings and decays on its own, which is the only
+;   reason a click is affordable in a loop that runs every 8 ms.
+INOUT:	LR 0,A			; the event, safe from what follows
+	INS 5
+	NI 3FH
+	LR 8,A
+	OUTS 5			; through silence, or an identical blip will not retrigger
+	LR A,8
+	AI SND1
+	OUTS 5
+	POP
+
 INUP:	LI EV_UP
-	LR 0,A
-	POP
+	BR INOUT
 INDN:	LI EV_DOWN
-	LR 0,A
-	POP
+	BR INOUT
 INLT:	LI EV_LEFT
-	LR 0,A
-	POP
+	BR INOUT
 INRT:	LI EV_RIGHT
-	LR 0,A
-	POP
+	BR INOUT
 INSEL:	LI EV_SEL
-	LR 0,A
-	POP
+	BR INOUT
 INBK:	LI EV_BACK
-	LR 0,A
-	POP
+	BR INOUT
 INPU:	LI EV_PGUP
-	LR 0,A
-	POP
+	BR INOUT
 INPD:	LI EV_PGDN
-	LR 0,A
-	POP
+	BR INOUT
 INCPY:	LI EV_COPY
-	LR 0,A
-	POP
+	BR INOUT
 ININF:	LI EV_INFO
-	LR 0,A
-	POP
+	BR INOUT

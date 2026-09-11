@@ -57,6 +57,15 @@ VMVI	EQU 0802DH		; the move SGMVOFF indexes, 0..4
 VMVCOL	EQU 0802EH		; the footer's running cell
 VMVLEN	EQU 0802FH		; characters of the move name actually drawn
 VMVBUF	EQU 080C0H		; one move name, clipped to the line
+VPROUND	EQU 08031H		; the round the last poll showed
+VPNMV	EQU 08032H		; and whether it was offering moves
+VLRON	EQU 08033H		; a result is on the footer and may be scrolling
+VLRPOS	EQU 08034H		; how far into it the marquee has got
+VLRTIK	EQU 08035H		; ticks until the next step
+VLRLEN	EQU 08036H		; its length, so the marquee knows where to stop
+VCUEQ	EQU 08037H		; cue queued by SGCUES for SGTURN to play
+VLRHOLD	EQU 08038H		; polls the end-of-hand banner has left to run
+VLRSUM	EQU 08039H		; checksum of the lastResult already shown
 VNTBL	EQU 0801AH		; tables the lobby found
 VTTOP	EQU 0801BH		; first table shown
 VEDX	EQU 0801CH		; keyboard cursor
@@ -174,6 +183,7 @@ FAILW:	PI INSCAN
 	INCLUDE "lobby.inc"
 	INCLUDE "game.inc"
 	INCLUDE "cards.inc"
+	INCLUDE "sound.inc"
 	INCLUDE "font.inc"
 
 SNOCART: DB "NO FUJINET CART",0
