@@ -108,4 +108,5 @@ def main():
           % (out, LAST - FIRST + 1, len(tables[0]), 5 * len(tables[0])))
 
 
-main()
+if __name__ == "__main__":
+    main()

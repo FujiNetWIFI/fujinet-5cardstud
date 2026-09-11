@@ -323,6 +323,133 @@ DCLR3:	DS 0
 	POP
 
 ; ---------------------------------------------------------------------------
+; DSTAMP -- blit one 5x5 1bpp stamp (see tools/mkcards.py).
+;   DC0 -> 5 bytes, one per row, bit 7 = leftmost pixel.
+;   r1 = left pixel column, r2 = top pixel row, r3 = colour.
+;
+; The same flat shape as DSTR and for the same reason: this is reached by PI,
+; so it cannot call anything, and the pixel write has to be inlined. Fixed at
+; five columns and one byte per row, where DSTR walks five row-major tables
+; three bits wide.
+;   Leaf. Clobbers A, r0, r4-r8, DC0.
+; ---------------------------------------------------------------------------
+DSTAMP:	LR A,3
+	COM
+	OUTS 1			; colour is constant for the whole stamp
+	LIS 5
+	LR 7,A			; rows left
+	CLR
+	LR 6,A			; row offset within the stamp
+
+DSTMR:	LM			; A = this row's bits, DC0++
+	LR 5,A
+
+	LR A,2
+	AS 6
+	COM
+	NI 3FH
+	LR 8,A
+	INS 5
+	NI 0C0H
+	AS 8
+	OUTS 5			; VRAM row, sound bits preserved
+
+	LR A,1
+	LR 4,A			; running column
+	LIS 5
+	LR 8,A			; 5 pixels per row
+
+DSTMP:	LR A,5
+	OI 0			; LR A,r does not set flags; this does
+	BP DSTMS		; S set = bit 7 clear = pixel off
+	LR A,4
+	COM
+	OUTS 4
+	LI 60H
+	OUTS 0
+	LI 50H
+	OUTS 0
+	LIS 4
+	LR 0,A
+DSTMD:	DS 0
+	BNZ DSTMD
+
+DSTMS:	LR A,5
+	SL 1
+	LR 5,A
+	LR A,4
+	INC
+	LR 4,A
+	DS 8
+	BNZ DSTMP
+
+	LR A,6
+	INC
+	LR 6,A
+	DS 7
+	BNZ DSTMR
+	POP
+
+; ---------------------------------------------------------------------------
+; DFILL -- fill a rectangle measured in PIXELS.
+;   r0 = width in pixels, r1 = left column, r2 = top row, r3 = colour,
+;   r9 = height in rows.  NEITHER COUNT MAY BE ZERO: both are DS/BNZ
+;   countdowns, so 0 means 256 and paints most of the screen.
+;
+; DCLRR cannot do this job: it counts in 4-pixel cells and hardcodes both
+; CVAL0 and DCELLH, and the felt between two cards is one pixel wide. The two
+; are deliberately not merged -- DCLRR would have to load r3 with CVAL0, and
+; UITITLE and UIFOOT depend on the colour in r3 surviving their clear.
+;
+; The height rides in r9, the one register nothing in the tree holds across a
+; draw (fujilib.inc:161 sets it and consumes it six instructions later), so
+; this routine never touches a data counter and the caller's DC0 survives.
+;   Leaf. Clobbers A, r0, r2 (it walks down the rows), r4-r8.
+;   Leaves r1, r3, r9, DC0, DC1.
+; ---------------------------------------------------------------------------
+DFILL:	LR A,3
+	COM
+	OUTS 1			; colour, constant for the whole fill
+	LR A,0
+	LR 4,A			; width
+	LR A,9
+	LR 7,A			; rows left
+DFIL1:	LR A,2
+	COM
+	NI 3FH
+	LR 8,A
+	INS 5
+	NI 0C0H
+	AS 8
+	OUTS 5			; VRAM row, sound bits preserved
+	LR A,1
+	LR 5,A			; running column
+	LR A,4
+	LR 6,A			; pixels left in this row
+DFIL2:	LR A,5
+	COM
+	OUTS 4
+	LI 60H
+	OUTS 0
+	LI 50H
+	OUTS 0
+	LIS 4
+	LR 0,A
+DFIL3:	DS 0
+	BNZ DFIL3
+	LR A,5
+	INC
+	LR 5,A
+	DS 6
+	BNZ DFIL2
+	LR A,2
+	INC
+	LR 2,A
+	DS 7
+	BNZ DFIL1
+	POP
+
+; ---------------------------------------------------------------------------
 ; DELAYMS -- spin for roughly r3 milliseconds.
 ;   Approximate on purpose: it exists to pace a poll loop, not to time
 ;   anything. The BIOS has a delay at $008F, but its argument convention is

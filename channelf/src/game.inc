@@ -224,6 +224,19 @@ SGTITLE: ENTER
 	DCI VLINE
 	XDC
 	PI UITITLE
+	; cap the top of seat 0's cards with felt, in the title row's own blank
+	; pixel row -- the separators then run unbroken from here to the footer
+	LI CDBEDW
+	LR 0,A
+	LI CDX0
+	LR 1,A
+	LI DORGY+DCELLH-1
+	LR 2,A
+	LI CVAL3
+	LR 3,A
+	LIS 1
+	LR 9,A
+	PI DFILL
 	LEAVE
 
 ; SGFOOT -- the highlighted valid move, or whose turn it is.
@@ -287,7 +300,11 @@ SGMC2:	DCI VMOVE+2
 	ST
 	LEAVE
 
-; SGROWS -- one row per player. Reached by PI; calls one level down.
+; SGROWS -- one row per player. Reached by PI; calls two levels down.
+;
+; The name is drawn with DSTR directly rather than through UIROW, which
+; hardcodes the lobby's gutter offset: this screen has no cursor, so the row
+; starts at DORGX and the four pixels UIROW would skip go to the cards.
 SGROWS:	ENTER
 	DCI VROW
 	CLR
@@ -295,11 +312,16 @@ SGROWS:	ENTER
 SGR1:	DCI VROW
 	LM
 	CI NPLRROW
-	BZ SGRX
-	DCI VROW
+	BNZ SGR2
+	LEAVE
+
+SGR2:	DCI VROW
 	LM
 	LR 0,A
-	PI UICLRR
+	PI UIROWY		; r2 = this row's top pixel row
+	LR A,2
+	DCI VCY
+	ST			; in RAM: DCLRR and DFILL both walk r2 down
 
 	; draw when row < players; negate the COUNT so the sum is row - players
 	DCI VROW
@@ -311,9 +333,27 @@ SGR1:	DCI VROW
 	INC
 	AS 4			; row - players
 	BM SGRD
-	BR SGRN			; no player on this row
+	DCI VROW		; no player here: clear the row flat, cards and all
+	LM
+	LR 0,A
+	PI UICLRR
+	JMP SGRN
 
-SGRD:	PI SGPLINE		; VLINE = the formatted row
+	; Only the text field is cleared. Every pixel of the card bed is written
+	; exactly once by SGHAND, so clearing it first would be paying for it
+	; twice -- and 9 cells plus the bed comes to the same 552 pixels the
+	; full-width clear used to cost on its own.
+SGRD:	LI SGTXTW
+	LR 0,A
+	LI DORGX
+	LR 1,A
+	DCI VCY
+	LM
+	LR 2,A
+	PI DCLRR
+
+	PI SGPLINE		; VLINE = the name, VDIGIT = the purse
+
 	LI CVAL3
 	LR 3,A
 	DCI FNREPLY+GACTIVE
@@ -325,26 +365,66 @@ SGRD:	PI SGPLINE		; VLINE = the formatted row
 	BNZ SGRD2
 	LI CVAL2
 	LR 3,A			; the player to act gets the accent colour
-SGRD2:	DCI VROW
+
+	; r3 survives DCLRR, DSTR and SGDLEN, so the colour is set once here and
+	; used by both draws. The cards never take it: a suit's colour has to
+	; mean the suit.
+SGRD2:	LI DORGX
+	LR 1,A
+	DCI VCY
 	LM
-	LR 0,A
+	LR 2,A
 	DCI VLINE
-	XDC
-	PI UIROW
+	PI DSTR
+
+	; The purse is right-aligned so its last cell ends where the felt begins.
+	; DEC5 suppresses leading zeros and emits up to five characters, so a
+	; left-aligned field would either lie about a four-figure purse or push
+	; the bed off the safe area; this way a rich player eats into the tail of
+	; their own name instead, and the cards never move.
+	PI SGDLEN		; r4 = the length
+	LR A,4
+	SL 1
+	SL 1
+	COM
+	INC
+	AI CDX0+1		; 40 - 4*len
+	LR 1,A
+	DCI VCY
+	LM
+	LR 2,A
+	DCI VDIGIT
+	PI DSTR
+
+	PI SGHAND
 
 SGRN:	DCI VROW
 	LM
 	INC
 	DCI VROW
 	ST
-	BR SGR1
-SGRX:	LEAVE
+	JMP SGR1
 
-; SGPLINE -- build VLINE for the player on row VROW. Reached by PI; calls one
-;   level down.
+; SGDLEN -- r4 = the number of characters in VDIGIT, one to five.
+;   Leaf. Clobbers A, r4, DC0. Leaves r1, r2, r3.
+SGDLEN:	DCI VDIGIT
+	CLR
+	LR 4,A
+SGDL1:	LM
+	CI 0
+	BZ SGDLX
+	LR A,4
+	INC
+	LR 4,A
+	BR SGDL1
+SGDLX:	POP
+
+; SGPLINE -- VLINE = the player's name clamped to six characters, VDIGIT =
+;   their purse. The cards are no longer part of the row string: SGHAND draws
+;   them as tiles straight out of the record.
+;   Reached by PI; calls one level down.
 SGPLINE: ENTER
-	; the purse first: DEC5 needs the record, and building the row will move
-	; the cursor around
+	; the purse first: DEC5 walks DC1, which the row builder below needs
 	PI SGPOFF
 	LI PPURSLO
 	ADC
@@ -357,37 +437,21 @@ SGPLINE: ENTER
 	DCI VLINE
 	XDC			; DC1 = the row cursor
 	PI SGPOFF		; DC0 = the record, at the name
-	LI 6
+	LIS 6
 	LR 4,A
 SGPL1:	LM
-	CI 0
-	BZ SGPL2
 	XDC
 	ST
 	XDC
+	CI 0
+	BZ SGPLX		; ST leaves A alone, so this still sees the character
 	DS 4
 	BNZ SGPL1
-	BR SGPL3
-SGPL2:	LI ' '
-	LR 0,A
-SGPL2A:	PI SBCH
-	DS 4
-	BNZ SGPL2A
-SGPL3:	LI ' '
-	LR 0,A
-	PI SBCH
-	DCI VDIGIT
-	PI SBCAT
-	LI ' '
-	LR 0,A
-	PI SBCH
-
-	PI SGPOFF
-	LI PHAND
-	ADC
-	PI SBCAT
-	PI SBEND
-	LEAVE
+	XDC
+	CLR
+	ST
+	XDC			; six characters and no NUL of its own: add one
+SGPLX:	LEAVE
 
 ; SGPOFF -- DC0 = FNREPLY + GPLAYER + VROW*PSTRIDE. Leaf. Clobbers A, r4.
 SGPOFF:	DCI VROW

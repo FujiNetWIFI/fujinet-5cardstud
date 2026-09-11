@@ -32,6 +32,9 @@ VCUR	EQU 08007H		; cursor row
 VNROW	EQU 08008H		; rows filled
 VROW	EQU 0800DH		; draw loop counter
 VPIXY	EQU 0800EH
+VCY	EQU 08009H		; the seat row's top pixel row (cards.inc)
+VCX	EQU 0800AH		; the current card slot's left pixel column
+VCI	EQU 0800BH		; card slot 0..4
 VIPCTL	EQU 08010H		; (input.inc)
 VIPPAN	EQU 08011H
 VREQ	EQU 08012H		; which request BLDURL should build
@@ -45,6 +48,11 @@ VRXHI	EQU 08019H
 VMIN0	EQU 08026H		; bytes NSETTLE must see before it believes a reply
 VMIN1	EQU 08027H
 VFAILC	EQU 08028H		; the code FAIL shows
+VCRNK	EQU 08029H		; the card's rank byte, off the wire
+VCSUI	EQU 0802AH		; its suit -- MUST be VCRNK+1: SGHAND stores both
+				; after a single DCI
+VCCOL	EQU 0802BH		; the suit's colour, carried across two fills
+VCEND	EQU 0802CH		; the hand's NUL has been reached
 VNTBL	EQU 0801AH		; tables the lobby found
 VTTOP	EQU 0801BH		; first table shown
 VEDX	EQU 0801CH		; keyboard cursor
@@ -161,6 +169,7 @@ FAILW:	PI INSCAN
 	INCLUDE "nament.inc"
 	INCLUDE "lobby.inc"
 	INCLUDE "game.inc"
+	INCLUDE "cards.inc"
 	INCLUDE "font.inc"
 
 SNOCART: DB "NO FUJINET CART",0

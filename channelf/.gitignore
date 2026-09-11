@@ -1,3 +1,5 @@
 build/
 src/font.inc
 src/endpoint.inc
+src/cardart.inc
+tools/__pycache__/

@@ -5,12 +5,6 @@ core cannot fit these machines, so the game is written to them.
 
     make            # -> build/5card.bin, 16384 bytes
 
-**4,825 bytes** in a 16K window, next to the Arcadia port's 4,509 for the same
-job. Verified against the live server at `5card.carr-designs.com`:
-`emu/5carddrive.lua` in the firmware tree types a name on the on-screen
-keyboard, commits it, lists the real tables, sits down, and renders a live
-seven-player hand.
-
 ## What is different here
 
 RAM is not the constraint. The Arcadia client runs in 84 bytes and the
@@ -22,13 +16,55 @@ reply-stability invariant makes it free.
 
 ## Screen
 
-23 columns x 9 rows. One row per player, 22 cells after the cursor gutter:
+23 columns x 9 rows of 4x6 cells: a title, seven seats, a footer. A seat row is
 
-    NAME__ ppp CCCCCCCCCC
+    NAME__ ppp | card | card | card | card | card
 
-six of name, three of purse, five cards as two ASCII bytes each. The server
-sends cards already as text (`as`, `th`), so they are drawn as they arrive;
-`??` is a hole card. The player to act is drawn in the accent colour.
+six of name, then the purse, then five cards as 10x5 tiles on an 11-pixel pitch
+from x=39. There is no cursor gutter on this screen -- only the lobby has a
+cursor -- so the row starts at x=4 and those four pixels go to the cards. The
+player to act has their name and purse in the accent colour; the cards never
+take it, because a suit's colour has to mean the suit.
+
+### Why the felt is drawn and the card is not
+
+The palette is one choice for the whole screen and there is no white in any of
+them: value 0 is LTGRAY and values 1-3 are BLUE, RED, GREEN. The lightest thing
+on the machine is therefore the background itself, so a card face is not
+painted -- it is what is left when the felt is painted around it. Hearts and
+diamonds draw red, spades and clubs blue, which is as close to black as this
+console gets.
+
+A face is 10 pixels: a 5-wide rank then a 5x5 suit pip, both stamped from
+`cardart.inc`. The ranks are the font's own uppercase glyphs, moved into the
+middle of a 5-wide field by the generator rather than at +1 at runtime -- which
+is what lets the ten be an ordinary table entry drawing "10" instead of a
+special case drawing "T", and means the wire's lowercase `t` never reaches the
+font, whose lowercase forms are squashed four-row variants. A hole card is a
+red lattice across the whole face; an undealt slot is bare felt, so how many
+cards are out reads at a glance.
+
+### The redraw is free
+
+Cards cost nothing per poll, which is not obvious and did not have to be true.
+**No pixel is written twice.** `SGROWS` clears only the nine text cells, and
+`SGCARD` writes each slot's separator, face and gap row disjointly: 216 + 336
+is exactly the 552 pixels the old full-width clear cost on its own. Filling the
+whole bed with felt and punching the faces back out -- the obvious way to do it
+-- would have cost 45% more on a screen that already visibly repaints.
+
+Spade and club are the hard pair at 5x5. They are separated at silhouette
+level, not by one interior pixel: the spade widens downward to a solid row and
+necks into a 1px stem, the club narrows downward from a notched shoulder. One
+pixel of difference would not survive composite video.
+
+### The purse is right-aligned
+
+`DEC5` suppresses leading zeros and emits one to five characters. A
+left-aligned field would either lie about a four-figure purse or push the bed
+off the safe area, so the purse is drawn right-aligned to end where the felt
+begins: a rich player eats into the tail of their own name, and the cards never
+move.
 
 ## The five transport rules
 

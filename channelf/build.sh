@@ -15,6 +15,7 @@ P2BIN="${P2BIN:-$HOME/asl/p2bin}"
 
 mkdir -p build
 python3 tools/mkfont.py src/font.inc
+python3 tools/mkcards.py src/cardart.inc
 
 ( cd src && "$ASL" 5card.asm -L -i . -q )
 "$P2BIN" src/5card.p build/5card.bin -r 0x800-0x47ff -l 0xff -q
