@@ -1,9 +1,12 @@
 ; cdmenu.asm -- bank 3: the in-game menu and the help screen.
 ;
-; Reached by pushing the stick LEFT at the table. The 2600 has one button and
-; four directions and no keypad, and the move menu already owns up, down and
-; fire, so left is what is left. RESET is not an option for this: the console
-; RESET switch restarts the program, which is a cold start, not a menu.
+; Reached by the RESET switch at the table, or by pushing the stick LEFT. The
+; 2600 has one button and four directions and no keypad, and the move menu
+; already owns up, down and fire -- so left is what is left of the stick, and
+; RESET is the only labelled button going spare. It is a SWITCH on this
+; console, SWCHB bit 0, which the program reads: it restarts nothing, and what
+; it means is the client's to choose. Both gestures also back OUT of here, for
+; the same reason a door opens both ways.
 
         CPU     6502
         INCLUDE "vcs.inc"
@@ -52,7 +55,7 @@ APPVBL: jsr     INREPT
         lda     CDMHELP
         beq     MAV0
         lda     CDINP
-        and     #IN_FIRE|IN_LEFT
+        and     #IN_FIRE|IN_LEFT|IN_RST
         beq     MAVR
         lda     #0
         sta     CDMHELP
@@ -75,7 +78,7 @@ MAV1:   lda     CDINP
         inc     CDSEL
         jsr     MDRAW
 MAV2:   lda     CDINP
-        and     #IN_LEFT        ; left again backs out, like it came in
+        and     #IN_LEFT|IN_RST ; either one again backs out, as it came in
         bne     MRESUME
         lda     CDINP
         and     #IN_FIRE

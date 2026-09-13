@@ -13,8 +13,8 @@ SECS ?= 200
 
 SRC := $(wildcard src/*.asm src/*.inc)
 
-.PHONY: all layout run runlayout drive smoke resettest shot probe hosttest \
-        emu clean
+.PHONY: all layout run runlayout drive smoke resettest resetleave shot probe \
+        hosttest emu clean
 
 all: build/5card.bin
 
@@ -43,6 +43,11 @@ drive: all
 smoke: drive
 resettest: all
 	MAME=$(MAME_DIR) SECS=90 ./run.sh 5card resettest
+# The RESET SWITCH, which is a different thing from resettest's soft_reset():
+# it must give the seat up rather than abandon it.
+resetleave: all
+	MAME=$(MAME_DIR) DRIVE_LUA=$(PWD)/emu/drive.lua SECS=$(SECS) \
+	    ./run.sh 5card resetleave
 probe: all
 	MAME=$(MAME_DIR) SECS=$(SECS) ./run.sh 5card probe
 shot: layout

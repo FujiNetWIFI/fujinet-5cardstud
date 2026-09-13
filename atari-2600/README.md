@@ -14,7 +14,8 @@ make                       # build/5card.bin, 16384 bytes
 make layout                # the screen with no network at all
 make run                   # in a window
 make drive                 # headless, plays a hand against the live server
-make resettest             # the RESET switch, mid-hand
+make resettest             # a 6507 restart, mid-hand
+make resetleave            # the RESET switch: menu, leave, back to the list
 make hosttest              # the cartridge's card art, bit for bit
 ```
 
@@ -274,10 +275,10 @@ landed on exact multiples of 256.
 |---|---|
 | Stick up/down | move the cursor — the move menu, the list, the keyboard |
 | Fire | select, submit, sit |
-| Stick left | the in-game menu; left again backs out |
+| Stick left | the in-game menu; left again backs out. **RESET does the same** — see below |
 | Stick right | poll now |
 | **SELECT held** | every seat's value field shows its **purse** |
-| RESET | a cold start, back to the lobby. The cartridge survives it — see rule 6 — so the very next transaction continues the conversation rather than colliding with one already answered |
+| RESET | **the in-game menu** — resume, how to play, or leave the table — and RESET again backs out of it. It is the button to reach for: the only labelled one the console has that the game is not already using, since the move menu owns up, down and fire. Leaving from there sends `/leave` and then a fresh `/tables`. It used to jump straight to the lobby with `ENCOLD`, which **abandoned the seat**: no `/leave` ever went out, the server held the place until its own timeout, and the table went on listing a player who had gone |
 
 The end-of-hand banner fires on a **checksum of `lastResult`**, not on the
 round. Triggering off the round is wrong twice over: at a small table where
@@ -308,7 +309,10 @@ poll the server has dealt again.
 - **The RESET switch is a SWITCH here**, `SWCHB` bit 0, which the program
   reads. It reboots nothing at all unless the client acts on it, and the first
   reset test pressed it and concluded the client had stopped talking. The test
-  uses `soft_reset()`; the client acts on the switch by choice.
+  uses `soft_reset()`; the client acts on the switch by choice — and what it
+  does with it is *open the in-game menu*, not restart. `make resettest` and
+  `make resetleave` are therefore two tests of two different things, and
+  neither substitutes for the other.
 - **A bank switch is a JUMP, so nothing ever returns through one** — and the
   switches are taken from inside `APPVBL`, which `DLOOP` reaches with a `JSR`.
   Two bytes of stack leaked per poll, a poll every ninety frames, and after
@@ -372,7 +376,8 @@ card art is not on the cell grid at all, so it is compared as **plane bytes**.
 | build gates | `checkdefs.py` (the client's equates against the firmware header), `checkrom.py` (image size, the `"FUJI"` claim, the reset vector in the fixed half, no RMW or indirect store on the control pages), `checkbanks.py` per bank and `mktail.py` on the tail. All fail the build. |
 | `make layout` | the kernel, the colours and the 21-row geometry with no network at all — including all eight seats, which a live table does not always fill. |
 | `make drive` | types a name, sits at a real table on `5card.carr-designs.com`, and plays. It dumps the reply's `hand[11]` and the card bed's plane bytes so the art can be checked against live data: a `6h 2h kc 9d` came back as the hatched back, then a heart, a club and a diamond pip, all twelve bytes exact. |
-| `make resettest` | pulses the RESET switch mid-hand and asserts the cartridge's sequence carried across it. |
+| `make resettest` | restarts the 6507 mid-hand with `soft_reset()` and asserts the cartridge's sequence carried across it. |
+| `make resetleave` | presses the RESET *switch* at a table, walks the menu to LEAVE and fires: asserts the menu opened, that `/leave` then `/tables` went out, and that the lobby came back with a list actually on it. |
 
 The card bed decoded out of a live game, for `hand[11] = "6h2hkc9d"` with the
 hole card masked:

@@ -104,12 +104,16 @@ NBACKL: lda     #ENLOBBY
 ; ---------------------------------------------------------------------------
 ; Leaving. The reply is a Game and is thrown away; what matters is that the
 ; server frees the seat.
+;
+; Then STRAIGHT ON TO A FRESH /tables, because the list the lobby is still
+; holding has us sitting at one of them. Falling into NTABLE is also what puts
+; the lobby up WARM rather than cold: ENCOLD wipes the console's RAM and the
+; cartridge's path buffers and sends the player back through the keyboard,
+; which is a reasonable thing for a power-on and a strange one for "I left the
+; table".
 NLEAVE: lda     #RQLEAVE
         jsr     APICALL
-        lda     #ENCOLD
-        sta     CDENT
-        lda     #BANKLOB
-        jmp     CDGOTO
+        jmp     NTABLE
 
 ; ---------------------------------------------------------------------------
 ; APPVBL -- nothing. DFRAME calls this every frame, and every frame this bank

@@ -127,21 +127,23 @@ APV1:   cmp     CDSELHD
         lda     #BANKCMP
         jmp     CDGOTO
 
+; The in-game menu: resume, how to play, or leave the table. EITHER GESTURE
+; OPENS IT, and RESET is the one to reach for -- it is the only labelled button
+; this console has that the game is not already using, and the move menu
+; already owns up, down and fire. The stick stays bound because the menu backs
+; out on left, and a way in that is not also the way out is a bad door.
+;
+; RESET is a SWITCH here -- SWCHB bit 0, which the program reads -- and not a
+; CPU reset: nothing reboots unless the client makes it. So what it means is
+; the client's to choose, and it used to mean "cold start, back to the lobby".
+; That ABANDONED THE SEAT: no /leave ever went out, the server held the place
+; until its own timeout, and the table went on listing a player who had gone.
+; The menu's LEAVE gives it up properly, so RESET now opens the menu instead of
+; taking the decision itself.
 APV2:   lda     CDINP
-        and     #IN_LEFT
-        beq     APV2R
-        lda     #BANKMNU        ; the in-game menu: resume, or leave
-        jmp     CDGOTO
-
-; The RESET switch is a SWITCH on this console -- SWCHB bit 0, which the
-; program reads -- and not a CPU reset: nothing reboots unless the client makes
-; it. Leaving a seat properly is the menu's LEAVE; this is the blunt way out.
-APV2R:  lda     CDINP
-        and     #IN_RST
+        and     #IN_LEFT|IN_RST
         beq     APV3
-        lda     #ENCOLD
-        sta     CDENT
-        lda     #BANKLOB
+        lda     #BANKMNU
         jmp     CDGOTO
 
 APV3:   lda     CDINP
