@@ -82,9 +82,22 @@ GW1:    lda     #ENDRAW
         sta     CDENT
         lda     #BANKCMP
         jmp     CDGOTO
-GRUN:   lda     #0
-        sta     VBLANK
-        jmp     DLOOP
+; The run loop, and it is DLOOP with one thing added: the poll is started
+; HERE, between frames, and not from inside APPVBL.
+;
+; A bank switch taken from the hook abandons the frame in its vblank, before
+; it has drawn a single line, so that frame came out black -- one of the two
+; blinks a poll used to cost. APPVBL now only counts CDPOLL down and leaves it
+; at zero; the switch waits for DFRAME to finish the picture first.
+GRUN:   jsr     DFRAME
+        lda     CDPOLL
+        bne     GRUN
+; Time to poll. That is a whole other bank: net.inc and url.inc are 550 bytes
+; and this one has a display kernel, a renderer and a move menu to fit.
+        lda     #ENFETCH
+        sta     CDENT
+        lda     #BANKNET
+        jmp     CDGOTO
 
 ; ---------------------------------------------------------------------------
 ; APPVBL -- the kernel's per-frame hook, called with the screen blanked.
@@ -147,17 +160,14 @@ APV4:   jsr     GMOVEUI
         bne     APV6
         jsr     GLRNEXT
 
-APV6:   dec     CDPOLL
+; The poll clock. It stops AT zero rather than switching banks here -- GRUN
+; does that once the frame this is running inside has been drawn -- so the
+; test has to come before the decrement, or a due poll would wrap CDPOLL back
+; to 255 on the very next frame.
+APV6:   lda     CDPOLL
         beq     APV7
-        rts
-; Time to poll. That is a whole other bank: net.inc and url.inc are 550 bytes
-; and this one has a display kernel, a renderer and a move menu to fit. The
-; screen is blanked for a transaction either way, so a bank with no kernel in
-; it loses nothing by taking the call.
-APV7:   lda     #ENFETCH
-        sta     CDENT
-        lda     #BANKNET
-        jmp     CDGOTO
+        dec     CDPOLL
+APV7:   rts
 
 ; ---------------------------------------------------------------------------
 ; GMOVEUI -- the cursor, the clock, and the submit.

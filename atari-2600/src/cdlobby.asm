@@ -92,7 +92,7 @@ LWARM:  jsr     DINIT
         jsr     CDINKW
         lda     #0
         sta     CDSEL
-        jsr     LDRAW
+        jsr     LDSEL
         lda     #0
         sta     VBLANK
         jmp     DLOOP
@@ -105,7 +105,7 @@ APPVBL: jsr     INREPT
         lda     CDSEL
         beq     LAV1
         dec     CDSEL
-        jsr     LDRAW
+        jsr     LDSEL
 LAV1:   lda     CDINP
         and     #IN_DOWN
         beq     LAV2
@@ -115,7 +115,7 @@ LAV1:   lda     CDINP
         cmp     CDCNT
         bcs     LAV2
         sta     CDSEL
-        jsr     LDRAW
+        jsr     LDSEL
 LAV2:   lda     CDINP
         and     #IN_RIGHT
         beq     LAV3
@@ -248,18 +248,44 @@ LDNXT:  inc     CDIDX
         cmp     #MAXTBL
         bne     LD2
 
+        jsr     LDSEL
+
+LDFOOT: lda     #RLFOOT
+        jsr     FNROWA
+        ldx     #(LSFOOT)&$FF
+        ldy     #(LSFOOT)>>8
+        jsr     FNSETP
+        jsr     FNSTRA
+        jmp     FNENDR
+
+; ---------------------------------------------------------------------------
+; LDSEL -- the cursor moved, and NOTHING ELSE DID.
+;
+; This is the whole of what a cursor key changes, and calling LDRAW for it is
+; what made the list bounce. LDRAW composes thirteen rows -- a title, ten
+; tables, the seat count and a footer -- which is about 3,800 cycles against a
+; vblank budget of 2,812, and the overrun does not get absorbed: it pushes the
+; frame's first drawn line thirteen scanlines down the screen. Every keypress
+; jolted the picture and then it snapped back.
+;
+; Ten of those thirteen rows are the table names, which a cursor key does not
+; touch. What it touches is the bar and the seat count, and that is a
+; zero-page store and one row.
+;
 ; The cursor is the same red bar the move menu uses. There is no inverse video
 ; and no per-cell colour on this machine, so a whole-row band is the only
 ; highlight there is -- and having one highlight mean one thing everywhere is
-; better than inventing a second.
-        lda     CDSEL
+; better than inventing a second. The kernel reads CDBAR on its seam line, so
+; moving the bar really is just the store.
+LDSEL:  lda     CDSEL
         clc
         adc     #RLIST0
         sta     CDBAR
 
 ; The seat count the server pre-formats as "cur / max". It is a literal
 ; string, not two numbers -- only the JSON form splits it -- so it is printed
-; verbatim.
+; verbatim. It belongs to the SELECTED table, which is why it is in here and
+; not up with the list.
         lda     #RLSEAT
         jsr     FNROWA
         jsr     LTBPTR
@@ -271,15 +297,7 @@ LD6:    lda     (FNPTRL),y
         iny
         dex
         bne     LD6
-LD7:    jsr     FNENDR
-
-LDFOOT: lda     #RLFOOT
-        jsr     FNROWA
-        ldx     #(LSFOOT)&$FF
-        ldy     #(LSFOOT)>>8
-        jsr     FNSETP
-        jsr     FNSTRA
-        jmp     FNENDR
+LD7:    jmp     FNENDR
 
 ; LTBPTR2 -- the same pointer, for the row being drawn rather than the one
 ; selected.
