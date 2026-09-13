@@ -153,7 +153,7 @@ and the text planes and the reply window are cartridge state that survives.
 | 2 `cdnet` | one request, and back |
 | 3 `cdmenu` | the in-game menu, leaving, help |
 | 4 `cdname` | the keyboard and the shared username |
-| 5 `cdcomp` | compose the whole table, in a frame of exactly 262 scanlines |
+| 5 `cdcomp` | compose the whole table, a chunk per frame, with the picture up |
 | 6 | spare, a stub back to bank 0 |
 
 **The fetch has a bank of its own, and that is why there are seven.**
@@ -196,10 +196,22 @@ screen by the difference: the table jumped, once a poll. The same thing
 happened on a SELECT press, which recomposes sixteen seat rows.
 
 There was nowhere to fix it in bank 1 — `cdgame` had thirty-two bytes left.
-Bank 5 has two thousand, and what they buy is a frame skeleton that is 262
-scanlines whatever the compose costs: three of `VSYNC`, a `T1024T` window wide
-enough to compose in, and a counted `WSYNC` pad for the difference. The screen
-is blanked for it, so a poll costs a black frame and **no movement**.
+
+The first cut in bank 5 spent one **blanked** frame of exactly 262 scanlines
+on the whole compose. That killed the jump and cost a black frame every poll,
+which is the blink. So it does the opposite now: it runs the display kernel
+and composes **a chunk per frame**, each small enough to fit a vblank. The
+picture is up throughout, every frame is 262 scanlines, and a recompose takes
+nine or ten frames during which the table is part old and part new — which for
+a poll that moved a clock digit is invisible, and for a fresh deal reads as
+the cards arriving.
+
+How many chunks per frame is decided by the timer, not a constant: after each
+seat it asks `INTIM` whether there is room for another. `TIMINT` is tested
+**first**, because reading `INTIM` clears the latch `cdisp.inc` is waiting on
+and doing that past zero would cost the frame a few scanlines. As it happens
+two seats never fit — one is about 1,435 cycles and the budget is 2,812 —
+but the check is what makes that a measurement rather than an assumption.
 
 It carries a *copy* of `render.inc` rather than taking it away from bank 1,
 because bank 1 still composes the small things itself — the move bar on a

@@ -103,7 +103,18 @@ GHEAD:  lda     #RHEAD
 ; the card bed as a side effect. Doing it afterwards would wipe the hand.
 GSEATS: lda     #0
         sta     CDIDX
-GS1:    lda     CDIDX
+GS1:    jsr     GSEAT1
+        inc     CDIDX
+        lda     CDIDX
+        cmp     #MAXPLYR
+        bne     GS1
+        rts
+
+; GSEAT1 -- compose the ONE seat CDIDX, and the reason GSEATS is a loop around
+; it rather than a loop with a body: cdcomp composes a seat at a time, fitting
+; as many as will go into a frame's vblank, so that a recompose never costs a
+; frame that does not draw. See cdcomp.asm.
+GSEAT1: lda     CDIDX
         cmp     CDNPLR
         bcs     GSEMPTY
 
@@ -166,7 +177,7 @@ GSACT:  lda     #CGOLD
 GSDIM:  lda     #CDIM
 GSCOL:  ldx     CDIDX
         sta     CDSCOL,x
-        jmp     GSNEXT
+        rts
 
 ; An empty seat: two blank rows, which also blanks its card bed.
 GSEMPTY: jsr    GSROW
@@ -184,13 +195,7 @@ GSEMPTY: jsr    GSROW
         ldx     CDIDX
         lda     #CDIM
         sta     CDSCOL,x
-
-GSNEXT: inc     CDIDX
-        lda     CDIDX
-        cmp     #MAXPLYR
-        beq     GSDONE          ; the seat body is far longer than a branch
-        jmp     GS1             ;   can reach
-GSDONE: rts
+        rts
 
 ; GSROW -- begin seat CDIDX's UPPER row and skip the card bed.
 GSROW:  lda     CDIDX

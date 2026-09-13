@@ -32,8 +32,8 @@ BANKGAM EQU     1               ; the table: display, render, bet
 BANKNET EQU     2               ; one poll, and back
 BANKMNU EQU     3               ; the in-game menu, leaving, help
 BANKNAM EQU     4               ; the on-screen keyboard and the username
-BANKCMP EQU     5               ; compose the whole table, in a frame of
-                                ;   exactly 262 scanlines. It is here for
+BANKCMP EQU     5               ; compose the whole table, a chunk per frame,
+                                ;   with the picture up. It is here for
                                 ;   TIMING, not size: see cdcomp.asm.
 BANKSPR EQU     6               ; the spare bank. An image has to be one of
                                 ;   four sizes and 16K is the one that fits,
