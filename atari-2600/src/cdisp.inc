@@ -133,7 +133,19 @@ DINIT:
         rts
 
 ; ---------------- DLOOP: draw frames, forever ----------------
-DLOOP:
+DLOOP:  jsr     DFRAME
+        jmp     DLOOP
+
+; ---------------- DFRAME: draw ONE frame, then return ----------------
+; Split out of DLOOP so a bank that is not running the display loop can still
+; keep the picture alive: net.inc waits for the cartridge a frame at a time
+; through here, which is what stops a poll from blanking the screen.
+;
+; A JSR into this is safe despite the kernel parking a graphics byte in S. The
+; return address is pushed BEFORE that happens and nothing pushes again until
+; SAVSP has been restored -- the same rule the kernel already lives by, one
+; level further out.
+DFRAME:
         lda     #2
         sta     VSYNC
         sta     WSYNC
@@ -149,9 +161,10 @@ DVBLP:  sta     WSYNC
         dex
         bne     DVBLP
 ; The client's per-frame hook, called while the screen is still blanked and
-; the raster is nowhere near the text. Input scanning belongs here; so does a
-; transaction, with the caveat that a network round trip takes far longer than
-; a frame and the picture will stall for it.
+; the raster is nowhere near the text. Input scanning belongs here; so does
+; STARTING a transaction, which is a bank switch out of this loop -- the bank
+; that talks keeps the picture alive by calling DFRAME below, one frame per
+; wait, rather than by returning here.
         inc     CDFRAME
         jsr     APPVBL
 
@@ -302,7 +315,10 @@ DPADB:  sta     WSYNC
 DOSLP:  sta     WSYNC
         dex
         bne     DOSLP
-        jmp     DLOOP
+; Returns with VBLANK SET, which is what makes DFRAME safe to call from a bank
+; that is going to do a few hundred cycles of work before the next one: the
+; gap is blanked rather than showing the raster free-running.
+        rts
 
 ; The chrome rows' ink colour, OUT OF LINE. The seat path is the one with no
 ; cycles left, so it gets the fall-through and the bottom bar pays the three

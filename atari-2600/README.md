@@ -158,9 +158,32 @@ and the text planes and the reply window are cartridge state that survives.
 **The fetch has a bank of its own, and that is why there are seven.**
 `net.inc` and `url.inc` are 550 bytes together and the game bank needs every
 byte it can get; it came in 552 bytes over with the network in it. A poll
-happens every ninety frames, so paying a bank switch for one costs nothing —
-and a bank with no display kernel does not mind that the screen is blanked
-while it talks, because it was blanked for the transaction anyway.
+happens every ninety frames, so paying a bank switch for one costs nothing.
+
+**It carries the display kernel too, and that was not the original plan.** A
+poll measured a **four-frame gap in `VSYNC` every ninety-four frames** — a
+flash, once every second and a half — and the network was barely any of it:
+two of those frames were the settle loop's own `#3 × CDWAIT`, a deliberate
+delay spun blind in a bank that could not draw, and the rest was the transport
+counting down in `FNGO` waiting on `ACKSEQ`. Neither wait emits a `VSYNC`, so
+the picture did not go black so much as stop being a picture.
+
+Both waits now go through `NFRAME`, which draws a real frame out of the text
+planes the cartridge is still holding — the reply window is not repainted
+until the `READ`, so the table on screen stays valid for the whole
+transaction. `FNGO` itself could not change (it is in the fixed tail, which
+has eight spare bytes, and `cdname` shares it for appkey calls with no picture
+to keep), so `net.inc` carries `NPGO`: the same single-commit launch and the
+same ~9s timeout in the same `FNTMO` quanta, polled once a frame instead of in
+a three-deep counted loop. **The gap is 4.0 frames before and 1.6 after**, and
+what is left is not the poll at all — it is `GWARM`'s full recompose, which is
+work rather than waiting.
+
+One thing the gate is for: this bank is entered from the lobby as well, and a
+bank has room for one `CDBGT`, not two. `NFRAME` draws for `RQSTATE` and
+`RQMOVE` — the two requests the game bank issues, and the only ones that
+repeat — and keeps the blind delay for the lobby's one-off `RQTABLE` and
+`RQLEAVE`, which happen on a screen change where nobody can see a blank.
 
 **The shared transport and the text primitives are in the fixed tail.**
 `$1F20-$1FFB` is the one region every bank sees at the same address, so it is

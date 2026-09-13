@@ -36,7 +36,7 @@ NCLOSE: lda     #NETDEV
         lda     #0
         sta     FNNPR
         jsr     FNBEG
-        jsr     FNGO
+        jsr     NPGO
         lda     #0
         rts
 
@@ -55,7 +55,7 @@ NOPEN:  lda     #NETDEV
         lda     #NTRNONE
         jsr     FNPB
         jsr     BLDURL
-        jsr     FNGO
+        jsr     NPGO
         cmp     #FNEOK
         bne     NOBAD
         jsr     FNACK
@@ -81,7 +81,7 @@ NSTATUS: lda    #NETDEV
         jsr     FNPB
         lda     #0
         jsr     FNPB
-        jsr     FNGO
+        jsr     NPGO
         cmp     #FNEOK
         bne     NSBAD
         jsr     FNACK
@@ -135,7 +135,7 @@ NREAD:  lda     #NETDEV
         jsr     FNBEG
         jsr     NRCAP
         jsr     FNPW            ; ONE parameter of TWO bytes, not two of one
-        jsr     FNGO
+        jsr     NPGO
         cmp     #FNEOK
         bne     NRBAD
         jsr     FNACK
@@ -170,6 +170,76 @@ NSM1:   lda     #(GMINLEN)&$FF
         ldx     #(GMINLEN)>>8
 NSM2:   sta     CDMIN0
         stx     CDMIN1
+        rts
+
+; ---------------------------------------------------------------------------
+; NFRAME -- one frame of waiting, and the whole reason this bank has a display
+; kernel in it.
+;
+; For a game poll that is a REAL frame: the text planes still hold the table
+; the game bank composed out of the last reply, and the reply window is not
+; repainted until the READ, so redrawing it is both correct and free. For the
+; lobby's one-off RQTABLE and RQLEAVE it is the old blind delay, because this
+; bank carries the table screen's CDBGT and only that one -- and those two
+; happen on a screen change, where nobody can see a blank.
+;
+; It clobbers X and Y on both paths, which is why the settle loop counts its
+; repeats in CDDLY. Battleship's first caller counted in Y as well and every
+; wait ran 256 times over -- seventy seconds where seventeen milliseconds were
+; meant, which looks exactly like a server that never answers.
+NFRAME: lda     CDREQ
+        cmp     #RQSTATE
+        beq     NFDRAW
+        cmp     #RQMOVE
+        beq     NFDRAW
+        jmp     CDWAIT
+NFDRAW: jmp     DFRAME
+
+; ---------------------------------------------------------------------------
+; NPGO -- FNGO, paced by the display instead of by a spin loop.
+;
+; The fixed tail's FNGO waits on ACKSEQ in a three-deep counted loop with the
+; screen dead. It cannot be changed there -- the tail has eight spare bytes and
+; it is shared with cdname, which has no picture to keep during an appkey
+; call -- so this is its twin, assembled into the one bank that polls.
+;
+; The launch is identical and has to be: the next sequence number comes from
+; the CART'S OWN persisted ACKSEQ + 1, never from a counter in RAM, because a
+; console RESET restarts this client without resetting the cartridge and a
+; program-local counter would collide with a sequence already answered.
+;
+; The timeout is the same ~9s in the same FNTMO quanta, so a real stall is
+; still reported as the cartridge's error rather than ours: sixteen quanta of
+; thirty-four frames is 544 frames, and FNTMO itself is the inner counter --
+; FNBEG's value is dead the moment it has been copied into FNCNT, and there is
+; no spare byte of zero page in this program to use instead.
+NPQUANT EQU     34              ; frames per FNTMO quantum, ~0.57s
+
+NPGO:   lda     FNACKS
+        clc
+        adc     #1
+        bne     NPGO1
+        lda     #1              ; 0 is reserved as "never used"
+NPGO1:  sta     FNSEQ
+        ldx     #FR_SEQ
+        jsr     FNRW            ; launching it is this single commit
+        lda     FNTMO
+        sta     FNCNT
+NPGO2:  lda     #NPQUANT
+        sta     FNTMO
+; ACKSEQ is published LAST, after the reply, its length and the error code are
+; all in place, so a match means everything behind it is already readable.
+NPGO3:  lda     FNACKS
+        cmp     FNSEQ
+        beq     NPGO5
+        jsr     NFRAME
+        dec     FNTMO
+        bne     NPGO3
+        dec     FNCNT
+        bne     NPGO2
+        lda     #FNEWAIT
+        rts
+NPGO5:  lda     FNERR
         rts
 
 ; ---------------------------------------------------------------------------
@@ -209,8 +279,8 @@ APAGN:  lda     CDAVL0
         lda     CDAVL1
         sta     CDPRV1
         lda     #3              ; ~3 frames between polls
-        sta     CDDLY           ; NOT in X or Y: CDWAIT is a register-counted
-APDLY:  jsr     CDWAIT          ;   delay and comes back with both clobbered
+        sta     CDDLY           ; NOT in X or Y: NFRAME is register-counted
+APDLY:  jsr     NFRAME          ;   either way and comes back with both gone
         dec     CDDLY
         bne     APDLY
         dec     CDTRIES
@@ -226,9 +296,9 @@ APRD:   jsr     NREAD
 ; wipe a window the caller may still be rendering the last good reply from.
 APRD1:  jmp     VALID8
 
-; CDWAIT -- one frame, roughly. There is no vertical-blank interrupt on this
-; console and the display loop is not running during a transaction, so this is
-; a plain delay; the point is only to space the STATUS polls out.
+; CDWAIT -- one frame, roughly. A plain counted delay, used only where the
+; screen is blanked anyway: there is no vertical-blank interrupt on this
+; console, and the lobby's fetches have no picture to keep.
 ;
 ; IT CLOBBERS X AND Y, because it counts in them. Battleship's first caller
 ; counted its own repeats in Y as well, so every wait ran 256 times over --

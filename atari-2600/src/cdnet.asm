@@ -6,14 +6,25 @@
 ; and the move menu and came in 552 bytes over with the network in it.
 ;
 ; A poll happens every ninety frames, so paying a bank switch for one costs
-; nothing measurable. And a bank with no display kernel does not mind that the
-; screen is blanked while it talks -- the screen was blanked for the
-; transaction anyway, because a round trip takes seconds and no 2600 client in
-; this family pretends otherwise.
+; nothing measurable.
 ;
-; There is nothing to draw here, so CDHASUI is 0 and most of cdlib and all of
-; the renderer are guarded out. What is left is the transport (in the fixed
-; tail), the N: round trip, the URL streamer and the length check.
+; IT DOES CARRY THE DISPLAY KERNEL, though it composes nothing. A /state poll
+; measured three to four frames of dead screen every ninety-four -- a flash,
+; once a second and a half -- and it was not the network: two of those frames
+; were the settle loop's own deliberate delay, spun blind in a bank that could
+; not draw, and the rest was the transport waiting on ACKSEQ. Neither wait
+; emits a VSYNC, so the picture did not go black so much as stop being a
+; picture. net.inc now spends both of them in DFRAME instead, which redraws
+; the table out of the text planes the cartridge is still holding.
+;
+; So CDHASUI is still 0 -- there is nothing to COMPOSE here, and the renderer
+; and most of cdlib stay guarded out -- but cdisp.inc and a row-colour table
+; are in, and APPVBL is an RTS because a frame drawn from inside a transaction
+; must not start another one.
+;
+; The table below is the GAME screen's, and that is the whole reason the
+; drawing path is gated on CDREQ: this bank is entered from the lobby too, and
+; a bank has room for one CDBGT, not two.
 
         CPU     6502
         INCLUDE "vcs.inc"
@@ -35,8 +46,9 @@ CDHASNET EQU    1               ; it is the only bank that issues requests
 
 ; ---------------------------------------------------------------------------
 ; Entered with CDENT saying which request, and leaving with CDENT saying where
-; to carry on. The screen stays blanked throughout: there is no kernel in this
-; bank to run it.
+; to carry on. Blank first: a game poll's first paced wait unblanks again a
+; frame later, and the lobby's one-off fetches stay blanked all the way
+; through, which is invisible because they happen on a screen change.
 NENTRY: lda     #2
         sta     VBLANK
 
@@ -99,9 +111,33 @@ NLEAVE: lda     #RQLEAVE
         lda     #BANKLOB
         jmp     CDGOTO
 
+; ---------------------------------------------------------------------------
+; APPVBL -- nothing. DFRAME calls this every frame, and every frame this bank
+; draws is one drawn from INSIDE a transaction: polling for another here would
+; re-enter APICALL through its own settle loop.
+APPVBL: rts
+
+; ---------------------------------------------------------------------------
+; CDBGT -- the background of each row. A copy of cdgame.asm's, because the
+; only screen this bank ever draws is the table: NFRAME draws for RQSTATE and
+; RQMOVE, which are the two requests the game bank issues, and spins blind for
+; the lobby's RQTABLE and RQLEAVE. Keep the two tables identical.
+CDBGT:  DB      CBLACK                          ; 0   the pot and your purse
+        DB      CBLACK,CBLACK                   ; 1-2   seat 0 -- you
+        DB      CDARK,CDARK                     ; 3-4   seat 1
+        DB      CBLACK,CBLACK                   ; 5-6   seat 2
+        DB      CDARK,CDARK                     ; 7-8   seat 3
+        DB      CBLACK,CBLACK                   ; 9-10  seat 4
+        DB      CDARK,CDARK                     ; 11-12 seat 5
+        DB      CBLACK,CBLACK                   ; 13-14 seat 6
+        DB      CDARK,CDARK                     ; 15-16 seat 7
+        DB      CBLACK,CBLACK,CBLACK,CBLACK     ; 17-20 the bottom bar
+        DB      CGREEN                          ; 21    back to the felt
+
         INCLUDE "cdlib.inc"
         INCLUDE "net.inc"
         INCLUDE "url.inc"
         INCLUDE "state.inc"
+        INCLUDE "cdisp.inc"
 
         END

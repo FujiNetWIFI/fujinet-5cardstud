@@ -79,9 +79,10 @@ GRUN:   lda     #0
 ; ---------------------------------------------------------------------------
 ; APPVBL -- the kernel's per-frame hook, called with the screen blanked.
 ;
-; A transaction takes far longer than a frame. That is accepted here as it is
-; in every sibling: the picture stalls for the round trip and comes back with
-; new data, which is honest and is what the server's own pace looks like.
+; A transaction takes far longer than a frame, but it no longer stalls the
+; picture: BANKNET waits through DFRAME, so the table stays on screen for the
+; whole round trip. What is still a stall is GWARM's recompose on the way back
+; -- one frame of composing twenty-one rows, which is work and not waiting.
 APPVBL: jsr     SNDTICK
         jsr     INREPT
         sta     CDINP
