@@ -137,8 +137,8 @@ MAXTBL  EQU     10
 ; ---------------- the screen: 12 columns, 21 rows ----------------
 ;   0        P<pot:5>$<purse:5>          the pot, and YOUR purse
 ;   1-16     eight seats, two rows each:
-;              upper   five card ranks (pixels 0-28) | name, columns 8-11
-;              lower   five suit pips  (pixels 0-28) | bet or purse, 8-11
+;              upper   five card ranks (pixels 2-30) | name, columns 8-11
+;              lower   five suit pips  (pixels 2-30) | bet or purse, 8-11
 ;   17-20    the bottom bar: the move menu with the red bar on the selection,
 ;            or WAITING ON <name>, or a page of the end-of-hand banner
 ;

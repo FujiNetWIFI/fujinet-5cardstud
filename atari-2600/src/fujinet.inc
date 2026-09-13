@@ -122,11 +122,19 @@ FB_CARD EQU     9               ; one seat's five cards: src = the reply
 FC_HIDE0 EQU    $01             ; draw card 0 face-down regardless
 
 ; The card bed, from the same header. Five cards on a six-pixel pitch fill
-; pixels 0-28, which is planes 0-3; planes 4 and 5 are columns 8-11 and the
+; pixels 2-30, which is planes 0-3; planes 4 and 5 are columns 8-11 and the
 ; cartridge never touches them, which is what lets a seat carry its name and
 ; purse beside its hand.
+;
+; The bed starts two pixels in because PIXEL 7 -- bit 0 of plane 0 -- cannot be
+; drawn by this kernel or any other: the six player copies and the seven GRP
+; writes leave one pixel of the 48 unreachable, and plane 0 bit 0 is the one
+; every client spends as an inter-character gap anyway. Flush to pixel 0 the
+; bed put card slot 1's leftmost ink column there and every slot-1 card lost
+; its left edge -- a K rendered as a bare vertical bar.
 CDSLOTS EQU     5
 CDPITCH EQU     6
+CDCARDX EQU     2               ; the bed's left margin
 CDCOLTX EQU     8               ; the first text column a card cannot reach
 
 ; ---------------- error codes ----------------

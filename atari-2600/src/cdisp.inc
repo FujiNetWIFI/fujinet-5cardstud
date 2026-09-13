@@ -18,6 +18,10 @@
 ; the kernel wants to do instead. That costs no scanlines at all: the blank
 ; line was already there, and the picture is still 21*6 = 126 lines.
 ;
+; "Free" means free of DEADLINES, not free of cycles: the seam line still has
+; to finish inside its 76, or it quietly costs a second scanline. The budget is
+; spelled out where it is spent, at the seam line itself.
+;
 ; Three facts make the seam line's timing a non-problem, which is the whole
 ; trick:
 ;
@@ -52,6 +56,14 @@ TP5     EQU     FNTEXT+$280
 
 TINK    EQU     FNTCLH-1        ; 5 ink lines, then the seam
 TLINES  EQU     FNTROW*FNTCLH   ; 126 scanlines of text
+
+; The seam line turns the row into a seat index with DEX rather than a
+; four-cycle SEC/SBC, which is only the same arithmetic while the first seat
+; row is row 1. It is, and the picture is 126 scanlines only because that DEX
+; fits -- so this is an assembly-time failure rather than a comment.
+        IF      RSEAT0<>1
+        ERROR   "the seam line's DEX assumes RSEAT0 = 1"
+        ENDIF
 
 ; NTSC: 3 vsync + 37 vblank + 192 visible + 30 overscan = 262.
 VBLINES EQU     36              ; plus the one DLOOP spends landing the
@@ -212,46 +224,66 @@ DINK:   sta     WSYNC
 ; ---- the seam line ----
 ; Line 5 of the cell. The cartridge stores zero here, so no glyph can be
 ; drawn and the kernel does something useful instead. See the file header for
-; why none of this needs to be cycle-exact.
+; why none of this needs to be cycle-exact WITHIN the line.
+;
+; IT DOES, HOWEVER, HAVE TO FIT IN ONE. This is a WSYNC-bounded loop, so a
+; seam line that runs past cycle 76 does not glitch -- it silently costs a
+; SECOND scanline, because the next `sta WSYNC` is then already on the
+; following line and waits for the end of THAT one. The first cut of this
+; reached DROWL's `lda #TINK` at cycle 77 on the seat path and every seat row
+; was seven scanlines instead of six: 142 lines of text, a 278-line frame, a
+; picture that rolls on anything that cares. Nothing about it looked wrong on
+; screen, which is the whole problem with the failure mode.
+;
+; The budget is therefore from this WSYNC to the last cycle of the next one,
+; and it is 76. The seat path below reaches it at 72. Two of the four spare
+; cycles are already spoken for: `lda CDBGT,x` costs a fifth cycle in any bank
+; whose twenty-two byte table straddles a page (cdgame's does), and
+; `bne DSEAM1` a third if its target ever lands on another page. So there are
+; TWO cycles free here. Anything bigger has to go on the chrome path, which
+; reaches its WSYNC at 66 and has ten.
         sta     WSYNC
-        lda     #0
-        sta     GRP0            ; three writes, not two: with VDELP set a
-        sta     GRP1            ;   write to GRP0 reloads the DELAYED GRP1
-        sta     GRP0            ;   and vice versa
-        ldx     CDROW
-        inx                     ; the row these colours are FOR
-        lda     CDBGT,x         ; 4
-        cpx     CDBAR           ; 3
-        bne     DSEAM1          ; 2
-        lda     #CRED           ; 2   the selected move's bar
-DSEAM1: sta     COLUBK          ; 3   -> by cycle 30, pixel 22 at the
+        lda     #0              ; 2
+        sta     GRP0            ; 3   ->  5   three writes, not two: with
+        sta     GRP1            ; 3   ->  8     VDELP set a write to GRP0
+        sta     GRP0            ; 3   -> 11     reloads the DELAYED GRP1
+        ldx     CDROW           ; 3   -> 14
+        inx                     ; 2   -> 16   the row these colours are FOR
+        lda     CDBGT,x         ; 4   -> 20
+        cpx     CDBAR           ; 3   -> 23
+        bne     DSEAM1          ; 3   -> 26
+        lda     #CRED           ; 2         the selected move's bar
+DSEAM1: sta     COLUBK          ; 3   -> 29   by cycle 30, pixel 22 at the
                                 ;   latest, under the green border
-; The ink colour: chrome for the header and the bottom bar, otherwise this
-; seat's, decided once per render and parked in CDSCOL because the kernel
-; cannot afford to walk the reply window.
-        cpx     #RSEAT0
-        bcc     DSEAM2
-        cpx     #RBAR0
-        bcs     DSEAM2
-        txa
-        sec
-        sbc     #RSEAT0
-        lsr     a               ; two rows per seat
-        tax
-        lda     CDSCOL,x
-        jmp     DSEAM3
-DSEAM2: lda     #CWHITE
-DSEAM3: sta     COLUP0
-        sta     COLUP1
-        iny                     ; step past the blank plane byte. AFTER the
-                                ;   colour writes, not before: COLUBK has to
-                                ;   land before the green border ends at pixel
-                                ;   31 and two cycles is two-thirds of the
-                                ;   margin this had.
-        inc     CDROW
-        lda     CDROW
-        cmp     #FNTROW
-        bne     DROWL
+        stx     CDROW           ; 3   -> 32   the row counter, advanced here
+                                ;   rather than with a read-modify-write at
+                                ;   the bottom: X still holds it, and `inc`
+                                ;   costs five cycles this line has not got
+        iny                     ; 2   -> 34   step past the blank plane byte.
+                                ;   AFTER the COLUBK store, not before: it has
+                                ;   to land before the green border ends at
+                                ;   pixel 31 and two cycles is two-thirds of
+                                ;   the margin that had.
+; The ink colour: chrome for the bottom bar, otherwise this seat's, decided
+; once per render and parked in CDSCOL because the kernel cannot afford to
+; walk the reply window.
+;
+; There is no low bound test. This seam programmes row X = CDROW + 1, which is
+; 1-21, so `cpx #RSEAT0 / bcc` could never branch -- four cycles spent on a
+; comparison whose answer was already known. Row 0 is chrome because DLOOP
+; writes CWHITE before the kernel starts, not because of a test here.
+        cpx     #RBAR0          ; 2   -> 36
+        bcs     DSEAM2          ; 2   -> 38   out of line; see below
+        dex                     ; 2   -> 40
+        txa                     ; 2   -> 42
+        lsr     a               ; 2   -> 44   two rows per seat
+        tax                     ; 2   -> 46
+        lda     CDSCOL,x        ; 4   -> 50
+DSEAM3: sta     COLUP0          ; 3   -> 53
+        sta     COLUP1          ; 3   -> 56
+        lda     CDROW           ; 3   -> 59
+        cmp     #FNTROW         ; 2   -> 61
+        bne     DROWL           ; 3   -> 64   + DROWL's 5 and the WSYNC's 3
 
         ldx     SAVSP
         txs
@@ -271,6 +303,12 @@ DOSLP:  sta     WSYNC
         dex
         bne     DOSLP
         jmp     DLOOP
+
+; The chrome rows' ink colour, OUT OF LINE. The seat path is the one with no
+; cycles left, so it gets the fall-through and the bottom bar pays the three
+; for a JMP -- it reaches the next WSYNC at 66 either way.
+DSEAM2: lda     #CWHITE
+        jmp     DSEAM3
 
 ; ---------------------------------------------------------------------------
 ; CDBGT is NOT here. Each bank supplies its own twenty-two byte table, because

@@ -74,12 +74,24 @@ still 126 lines — and three facts make its timing a non-problem:
 - `COLUP0`/`COLUP1` have no deadline at all on that line, because the sprites
   are blank.
 
+**What is free is the deadlines, not the cycles.** The seam line still has to
+finish inside its 76, and this is a `WSYNC`-bounded loop, so one that does not
+never glitches — it silently costs a *second* scanline, because the next
+`sta WSYNC` is already on the following line by then. The first cut reached
+`DROWL` at cycle 77 on the seat path: every seat row was seven scanlines, the
+text was 142 lines, the frame 278, and the screen looked entirely correct.
+The seat path now lands at 72, with the low `RSEAT0` bound test deleted (it
+could never branch — the seam programmes row `CDROW + 1`, which is 1-21), the
+row counter advanced with `stx` instead of a five-cycle `inc`, and the chrome
+branch moved out of line so the path with no cycles left gets the fall-through.
+
 What it buys: a green frame, a black panel, the red move bar, and a per-seat
 ink colour — with the 53-cycle ink body left byte-identical on every line that
 draws. **That body is transcribed from the firmware's `fujidisp.inc` and must
 not be retimed**; its four constants are the coordinates of a one-pixel-wide
 window found by byte-comparing the raster, and every wrong setting still looks
-like text.
+like text. That window is one pixel wide *for text*: for all 48 pixels it is
+zero pixels wide, which is what the card bed's left margin below is about.
 
 ### The cards
 
@@ -100,10 +112,22 @@ and a card ignores the cell grid entirely:
 ```
 
 Five cards on a **six-pixel pitch** — five of art, one of gap — fill pixels
-0-28, which is planes 0-3; planes 4 and 5 are columns 8-11 and the cartridge
+2-30, which is planes 0-3; planes 4 and 5 are columns 8-11 and the cartridge
 never touches them, which is what lets a seat carry its name and purse beside
 its hand. A card is two text rows tall, the rank over the pip, separated for
 free by the seam line. Six stores paint a whole hand.
+
+The bed starts at pixel **2**, and that margin is the one interesting number
+here: **pixel 7 — bit 0 of plane 0 — cannot be drawn at all.** Six player
+copies 2.67 cycles apart and seven 3-cycle GRP writes leave the four late
+writes spanning 33 pixels where only 32 are available, so every block position
+loses exactly one pixel, and the position that puts the loss on plane 0 bit 0
+is the right one — `vcs_render_row()` already spends that bit as column 1's
+inter-character gap, so no text has ever noticed and `dispcheck.py`, which
+only renders text, cannot see it. A bed flush to pixel 0 put card slot 1's
+*leftmost ink column* there: every slot-1 card came up with its left edge
+shaved off, a King rendering as a bare vertical bar. `host_test` now asserts
+the invariant against all fourteen ranks and five suits.
 
 Ranks re-centre the cartridge's own 3×5 glyph in the five-wide field rather
 than carrying a second alphabet, so a rank and a letter cannot disagree. `"??"`
