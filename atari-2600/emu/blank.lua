@@ -17,6 +17,8 @@
 if os.getenv("DRIVE_LUA") then dofile(os.getenv("DRIVE_LUA")) end
 
 local FRAME = 1 / 59.92
+local LINE  = FRAME / 262
+local hist  = {}
 local last, lastbank, n, bad, sum, worst = nil, 0, 0, 0, 0, 0
 
 local sp = manager.machine.devices[":maincpu"].spaces["program"]
@@ -27,16 +29,27 @@ _G._blank = sp:install_write_tap(0x00, 0x00, "vsync", function(off, data, mask)
     if last then
         local gap = t - last
         n = n + 1
-        if gap > FRAME * 1.5 then
+        local lines = math.floor(gap / LINE + 0.5)
+        hist[lines] = (hist[lines] or 0) + 1
+        if gap > FRAME * 1.02 then
             bad = bad + 1
             sum = sum + gap
             if gap > worst then worst = gap end
-            print(string.format("GAP #%d: %.1f frames (%dms) at %.2fs, "
+            print(string.format("GAP #%d: %d lines (%.2f frames) at %.2fs, "
                                 .. "bank %d -> %d",
-                                bad, gap / FRAME, math.floor(gap * 1000), t,
-                                lastbank, bank))
+                                bad, lines, gap / FRAME, t, lastbank, bank))
         end
-        if n % 600 == 0 then
+        if n % 900 == 0 then
+            local keys = {}
+            for k in pairs(hist) do keys[#keys+1] = k end
+            table.sort(keys)
+            local out = {}
+            for _, k in ipairs(keys) do
+                out[#out+1] = string.format("%d:%d", k, hist[k])
+            end
+            print("LINES " .. table.concat(out, " "))
+        end
+        if n % 900 == 0 then
             print(string.format("GAP: %d of %d frames dropped, mean %.0fms, "
                                 .. "worst %.0fms", bad, n,
                                 bad > 0 and sum / bad * 1000 or 0,

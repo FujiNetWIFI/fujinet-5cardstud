@@ -66,10 +66,36 @@ TLINES  EQU     FNTROW*FNTCLH   ; 126 scanlines of text
         ENDIF
 
 ; NTSC: 3 vsync + 37 vblank + 192 visible + 30 overscan = 262.
-VBLINES EQU     36              ; plus the one DLOOP spends landing the
-                                ;   unblank on a line boundary
+VBLINES EQU     37
 OSLINES EQU     30
 PADLINE EQU     (192-TLINES)/2  ; 33 above and below
+
+; THE BLANKED BANDS ARE TIMED, NOT COUNTED, and that is not a refinement --
+; counting them is what made the picture jump.
+;
+; The old loop burned VBLINES scanlines on WSYNC and THEN called APPVBL, so
+; whatever the hook did was ADDED to the frame instead of spent inside it. A
+; frame measured 265 scanlines rather than 262 just from scanning the input,
+; wandered between 262, 264 and 265 depending on what the hook touched, and
+; reached 413 on the frame a SELECT press recomposed the seats. Every one of
+; those is a different vertical position on the screen.
+;
+; So the two blanked bands set the RIOT's 64-cycle timer, do their work, and
+; then wait out whatever is left of it. The hook now runs INSIDE the vblank
+; and costs the frame nothing at all, as long as it fits.
+;
+; THE BUDGET IT HAS TO FIT IN IS 37 SCANLINES -- 2812 cycles, and no more.
+; DPADA and DPADB are not spare: they are the green bands, and they are
+; visible. Work that overruns still lengthens the frame, and the frame still
+; jumps; it is just that almost nothing overruns now.
+;
+; The two counts are in 64-cycle units and are one less than the arithmetic
+; suggests, because the timer has to expire INSIDE the last line rather than
+; on its boundary -- at 43 it lands 36 cycles into scanline 36 of 37, and the
+; WSYNC that follows takes the band to exactly 37. They were confirmed by
+; histogramming VSYNC-to-VSYNC with emu/blank.lua, not derived.
+VBTIM   EQU     43              ; ~37 scanlines of vblank
+OSTIM   EQU     35              ; ~30 scanlines of overscan
 
 ; The green side border. The playfield is 40 pixels of four clocks; PF0 is
 ; pixels 0-3 in its HIGH nibble and PF1 pixels 4-11 drawn MSB first, so $F0 in
@@ -156,23 +182,32 @@ DFRAME:
 
         lda     #2
         sta     VBLANK
-        ldx     #VBLINES
-DVBLP:  sta     WSYNC
-        dex
-        bne     DVBLP
+        lda     #VBTIM
+        sta     TIM64T
 ; The client's per-frame hook, called while the screen is still blanked and
 ; the raster is nowhere near the text. Input scanning belongs here; so does
 ; STARTING a transaction, which is a bank switch out of this loop -- the bank
 ; that talks keeps the picture alive by calling DFRAME below, one frame per
 ; wait, rather than by returning here.
+;
+; It runs ON the clock the store above started, so the frame does not grow by
+; what it does. See VBTIM for the 2812 cycles it has to fit in.
         inc     CDFRAME
         jsr     APPVBL
 
-; Land the unblank on a LINE BOUNDARY. APPVBL returns at whatever cycle it
-; happens to finish on, and clearing VBLANK there unblanks the raster
-; mid-scanline: the first visible line came up black for its first forty
-; pixels and green for the rest, which on a felt-coloured band is a visible
-; notch in the top left corner.
+; Wait out the rest of the band, then land the unblank on a LINE BOUNDARY.
+; Both halves matter. The timer is what makes the band a fixed length whatever
+; APPVBL did; the WSYNC is what keeps VBLANK from being cleared mid-scanline,
+; which used to bring the first visible line up black for its first forty
+; pixels and green for the rest -- a visible notch in the top left corner.
+;
+; TIMINT, not INTIM. Past zero the timer does not stop: it free-runs at a tick
+; a cycle, and a seven-cycle `lda INTIM / bne` walks over the single cycle it
+; reads zero on again and again. Polling INTIM cost an overrunning frame 290
+; scanlines where the work itself was 151. TIMINT's bit 7 LATCHES on the
+; underflow and stays latched, so an overrun costs exactly the overrun.
+DVBLP:  bit     TIMINT
+        bpl     DVBLP
         sta     WSYNC
         lda     #0
         sta     VBLANK
@@ -311,10 +346,11 @@ DPADB:  sta     WSYNC
 
         lda     #2
         sta     VBLANK
-        ldx     #OSLINES
-DOSLP:  sta     WSYNC
-        dex
-        bne     DOSLP
+        lda     #OSTIM
+        sta     TIM64T
+DOSLP:  bit     TIMINT
+        bpl     DOSLP
+        sta     WSYNC
 ; Returns with VBLANK SET, which is what makes DFRAME safe to call from a bank
 ; that is going to do a few hundred cycles of work before the next one: the
 ; gap is blanked rather than showing the raster free-running.
