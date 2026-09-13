@@ -105,7 +105,7 @@ if [ "${1:-}" = "layout" ]; then
 fi
 
 # ---------------- the client: three banks and the fixed half ----------------
-BANKS="cdlobby cdgame cdnet cdmenu cdname"
+BANKS="cdlobby cdgame cdnet cdmenu cdname cdcomp"
 
 # THE TAIL IS ASSEMBLED FIRST, and not as tidiness: it holds the shared
 # transport, and the banks reach it through build/tail.inc, which is generated
@@ -138,7 +138,7 @@ bankfits cdspare $((0x1800))
 "$P2BIN" build/cdspare.p build/cdspare.bin -r '$1000-$17FF' -l 0
 rm -f build/cdspare.p
 
-cat "${parts[@]}" build/cdspare.bin build/cdspare.bin build/cdtail.bin \
+cat "${parts[@]}" build/cdspare.bin build/cdtail.bin \
     > build/5card.bin
 rm -f "${parts[@]}" build/cdspare.bin build/cdtail.bin
 

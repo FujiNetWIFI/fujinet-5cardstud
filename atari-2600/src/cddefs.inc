@@ -32,12 +32,15 @@ BANKGAM EQU     1               ; the table: display, render, bet
 BANKNET EQU     2               ; one poll, and back
 BANKMNU EQU     3               ; the in-game menu, leaving, help
 BANKNAM EQU     4               ; the on-screen keyboard and the username
-BANKSPR EQU     5               ; two spare banks. An image has to be one of
+BANKCMP EQU     5               ; compose the whole table, in a frame of
+                                ;   exactly 262 scanlines. It is here for
+                                ;   TIMING, not size: see cdcomp.asm.
+BANKSPR EQU     6               ; the spare bank. An image has to be one of
                                 ;   four sizes and 16K is the one that fits,
-                                ;   so these exist whether or not they are
-                                ;   used; each holds a stub that returns to
-                                ;   bank 0, so a stray switch is survivable
-                                ;   rather than a jump into zeros.
+                                ;   so one exists whether or not it is used;
+                                ;   it holds a stub that returns to bank 0, so
+                                ;   a stray switch is survivable rather than a
+                                ;   jump into zeros.
 NBANKS  EQU     7
 
 ; The trampoline, at a fixed address in the fixed tail because the banks are
@@ -58,6 +61,12 @@ ENTABLE EQU     5               ; the fetch bank: one /tables
 ENMENU  EQU     6               ; the in-game menu
 ENLEAVE EQU     7               ; the menu bank: send /leave, then the lobby
 ENNAME  EQU     8               ; the keyboard
+ENDRAW  EQU     9               ; the compose bank: recompose the whole table
+ENDRSEA EQU     11              ; the compose bank: the eight seats only
+ENGRUN  EQU     10              ; the table, ALREADY composed -- just run. The
+                                ;   one that comes back from ENDRAW, and the
+                                ;   reason ENGAME cannot be reused: ENGAME
+                                ;   means "recompose", which is what asked.
 
 ; ---------------- requests ----------------
 RQTABLE EQU     0

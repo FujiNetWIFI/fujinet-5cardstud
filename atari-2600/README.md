@@ -153,7 +153,8 @@ and the text planes and the reply window are cartridge state that survives.
 | 2 `cdnet` | one request, and back |
 | 3 `cdmenu` | the in-game menu, leaving, help |
 | 4 `cdname` | the keyboard and the shared username |
-| 5, 6 | spare, each a stub back to bank 0 |
+| 5 `cdcomp` | compose the whole table, in a frame of exactly 262 scanlines |
+| 6 | spare, a stub back to bank 0 |
 
 **The fetch has a bank of its own, and that is why there are seven.**
 `net.inc` and `url.inc` are 550 bytes together and the game bank needs every
@@ -184,6 +185,28 @@ bank has room for one `CDBGT`, not two. `NFRAME` draws for `RQSTATE` and
 `RQMOVE` — the two requests the game bank issues, and the only ones that
 repeat — and keeps the blind delay for the lobby's one-off `RQTABLE` and
 `RQLEAVE`, which happen on a screen change where nobody can see a blank.
+
+**`cdcomp` is here for TIMING, not size, which makes it the odd one out.**
+Composing twenty-one rows is about 12,900 cycles and a frame's vblank is
+2,812 — and the vblank is all the blanked time there is, because `DPADA` and
+`DPADB` are the visible green bands. So the recompose after a poll could not
+run inside a frame, and running it between frames made that frame about 430
+scanlines instead of 262. What that does is push the *next* picture down the
+screen by the difference: the table jumped, once a poll. The same thing
+happened on a SELECT press, which recomposes sixteen seat rows.
+
+There was nowhere to fix it in bank 1 — `cdgame` had thirty-two bytes left.
+Bank 5 has two thousand, and what they buy is a frame skeleton that is 262
+scanlines whatever the compose costs: three of `VSYNC`, a `T1024T` window wide
+enough to compose in, and a counted `WSYNC` pad for the difference. The screen
+is blanked for it, so a poll costs a black frame and **no movement**.
+
+It carries a *copy* of `render.inc` rather than taking it away from bank 1,
+because bank 1 still composes the small things itself — the move bar on a
+cursor key is a couple of rows and fits the vblank budget with room to spare.
+Only the whole table and the eight seats do not. Every bank here carries its
+own copy of what it calls; this is that rule, not an exception to it. It has
+no display kernel at all: it blanks, composes and leaves.
 
 **The shared transport and the text primitives are in the fixed tail.**
 `$1F20-$1FFB` is the one region every bank sees at the same address, so it is
