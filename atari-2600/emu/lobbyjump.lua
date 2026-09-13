@@ -3,6 +3,13 @@
 -- first drawn line down by the overrun, and that is what "the screen bounces"
 -- is: the picture starting later inside its own frame.
 --
+-- IT ALSO CHECKS THERE IS SOMETHING ON SCREEN, and that is not belt and
+-- braces: a frame-length test passes trivially on a blank screen, and one did.
+-- A bad edit left the lobby calling the cursor-only redraw on entry as well,
+-- so the list was never composed at all -- and this test reported 108 presses
+-- and every frame at 262, which was true and meaningless. The check reads the
+-- cartridge's own text planes at $1800, which is what the kernel draws from.
+--
 -- THE PORT TAG IS NOT OPTIONAL. An earlier cut of this walked every port
 -- looking for a field whose name matched "Down", which finds P1 Down and then
 -- P2 Down, and pairs() order decided which one it kept. When it kept P2 the
@@ -19,6 +26,18 @@ local down = port and port.fields["P1 Down"]
 local up   = port and port.fields["P1 Up"]
 if not down or not up then error("no " .. JOY .. " / P1 Up+Down") end
 
+local function inked()
+    local n = 0
+    for plane = 0, 5 do
+        for i = 0, 127, 3 do
+            if sp:readv_u8(0x1800 + plane * 128 + i) ~= 0 then n = n + 1 end
+        end
+    end
+    return n
+end
+
+local blankframes = 0
+
 _G._lj = sp:install_write_tap(0x00, 0x00, "vsync", function(off, data)
     if (data & 0x02) == 0 then return end
     local t = manager.machine.time:as_double()
@@ -32,6 +51,9 @@ _G._lj = sp:install_write_tap(0x00, 0x00, "vsync", function(off, data)
         end
     end
     last = t
+    if n > 240 and sp:readv_u8(0x1F0E) == 0 and inked() < 12 then
+        blankframes = blankframes + 1
+    end
     -- once the lobby is up, nudge the cursor every 20 frames
     if n > 240 and sp:readv_u8(0x1F0E) == 0 then
         -- ALTERNATE. Holding one direction walks the cursor to the end of a
@@ -53,7 +75,8 @@ _G._lj = sp:install_write_tap(0x00, 0x00, "vsync", function(off, data)
         table.sort(keys)
         local out = {}
         for _, k in ipairs(keys) do out[#out + 1] = k .. ":" .. hist[k] end
-        print("LOBBY presses=" .. pressed .. " LINES " ..
+        print("LOBBY presses=" .. pressed .. " ink=" .. inked() ..
+              " blankframes=" .. blankframes .. " LINES " ..
               table.concat(out, " "))
     end
 end)

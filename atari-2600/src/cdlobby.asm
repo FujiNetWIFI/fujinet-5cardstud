@@ -92,7 +92,8 @@ LWARM:  jsr     DINIT
         jsr     CDINKW
         lda     #0
         sta     CDSEL
-        jsr     LDSEL
+        jsr     LDRAW           ; the WHOLE list. LDSEL is the cursor only and
+                                ;   FNCLS above has just blanked every row.
         lda     #0
         sta     VBLANK
         jmp     DLOOP
