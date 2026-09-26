@@ -25,6 +25,7 @@ XRONW   EQU     08H+3           ; red on white
 XKONF   EQU     04H+0           ; black on felt
 XRONF   EQU     08H+0           ; red on felt
 XFONW   EQU     00H+3           ; felt on white (inverse: highlights)
+XWONK   EQU     0CH+1           ; white on black (the chosen move)
 
 ; ----------------------------------------------------------------------
 ; TXTAT: string at HL (NUL-terminated) at char col E, row D, colors C

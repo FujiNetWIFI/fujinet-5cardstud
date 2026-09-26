@@ -58,3 +58,23 @@ KEYMAP: DB      KEY3
         DB      KEY1
         DB      'D',0,'9','6','3','.'   ; down CH 9 6 3 .
 STKMAP: DB      'U','D','L','R','T'
+
+; KNOBRD: A = the player 1 knob, 0 fully left .. FFH fully right, so the
+; menu runs the way the knob turns (as Clowns' player does; it is only the
+; BIOS menu that counts the other way). Checked in MAME: the paddle's
+; increase direction reads FFH at its stop. Clobbers nothing else.
+KNOBRD: IN      A,(POT0)
+        RET
+
+; KNOBZN: A = which of (V_MNU) equal zones knob value A falls in, i.e.
+; (A * count) >> 8. Clobbers B,DE,HL.
+KNOBZN: LD      E,A
+        LD      D,0
+        LD      H,D
+        LD      L,D
+        LD      A,(V_MNU)
+        LD      B,A
+KZN1:   ADD     HL,DE
+        DJNZ    KZN1
+        LD      A,H
+        RET

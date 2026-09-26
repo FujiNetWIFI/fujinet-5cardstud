@@ -20,15 +20,21 @@
 ; ---- RAM map ----------------------------------------------------------
 LINES   EQU     90              ; 15 rows of 4x6 text
 
-; Poll digest: what the last render drew, so a poll redraws only change.
-SEATSUM EQU     4E10H           ; 8 bytes: per-seat sum of the 33-byte record
-PRVPOT  EQU     4E18H           ; u16
+; Poll edges: what the last poll showed, for the redraw and the cues.
+PRVHND  EQU     4E10H           ; 8 bytes: cards each master seat showed
+PRVPOT  EQU     4E18H           ; pot at the last street change, u16
 PRVRND  EQU     4E1AH
 PRVACT  EQU     4E1BH
-PRVMVC  EQU     4E1CH
-PRVVIEW EQU     4E1DH
 PRVPC   EQU     4E1EH
-DIGFLG  EQU     4E1FH           ; bit0: digest valid
+PRVTIM  EQU     4E1FH           ; move clock last poll (the tick cue's edge)
+
+; The move menu and the cue queue.
+V_MSEL  EQU     4E1CH           ; highlighted move
+V_MNU   EQU     4E1DH           ; moves on the menu now; 0 = menu down
+V_KNOB  EQU     4E20H           ; knob reading the cursor last followed
+V_SNDQ  EQU     4E21H           ; cues waiting for the render (SQ* bits)
+V_MUTE  EQU     4E22H           ; nonzero: this render deals no clicks
+V_NCNT  EQU     4E23H           ; cards in HANDBUF
 
 ; Session state.
 PLNBUF  EQU     4E30H           ; player name, 9 + NUL
@@ -59,7 +65,9 @@ NAMEED  EQU     4EA0H           ; name-entry edit buffer, 8 slots
 TBLNAM  EQU     4E70H           ; joined table's display name, 21 + NUL
 HANDBUF EQU     4E88H           ; hand being drawn, 11 + NUL
 
-LINBUF  EQU     4F00H           ; display line being built (fujicfg style)
+PADBUF  EQU     4EFFH           ; one cell before LINBUF: a menu entry's
+                                ; lead space, so pad + name draw as one field
+LINBUF  EQU     4F00H          ; display line being built (fujicfg style)
 HEXBUF  EQU     4F30H
 STACK   EQU     4FC0H           ; grows down; 4FC0H+ left to the BIOS cells
 

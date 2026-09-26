@@ -49,7 +49,7 @@ RAM is screen RAM, full stop. 90 visible lines use 4000H–4E0FH and
 everything above is the game's:
 
     4000-4E0F  bitmap, 90 lines x 40 bytes
-    4E10-4E6F  poll digest and session state (see 5card.asm)
+    4E10-4E6F  poll edges, menu and cue state, session state (see 5card.asm)
     4E70-4EFF  table name, hand buffer, name-entry buffer
     4F00-4F2F  LINBUF (fujicfg convention)
     4F40-4FBF  stack (SP = 4FC0H)
@@ -116,11 +116,29 @@ Sequence numbers come from the cart's persisted ACKSEQ, never a local
 counter, so console RESET mid-hand restarts the program while the
 transaction stream continues unbroken — `emu/resettest.lua` proves it.
 
+## Choosing a move and sound
+
+* **Choosing a move.** The menu has no digits: the highlighted entry
+  (white on black) is moved with the stick, one step per push, or by
+  twisting the knob, which splits the menu into equal arcs of its travel,
+  and the trigger bets it. The cursor starts on the second move
+  (call/check) each turn, as in the C clients. The knob only takes over
+  once it has turned 6 steps from where it rested, so it neither jitters
+  between neighbours nor snaps back over a choice made with the stick.
+* **Sound.** Every cue in `src/platform-specific/sound.h` is here, with
+  the Intellivision port's pitches (`sound.inc` is shared verbatim with
+  the Texas Hold'em client): join, your turn, the tick of your move clock
+  (each poll that changes it), cursor and cursor-at-an-end, select, a
+  noise click per card dealt, the chip sweep at a new round, player
+  joined/left, and the showdown fanfare. Event cues are queued while
+  `CHKNEW` examines the poll and played after the render, so the news is
+  on screen when it sounds.
+
 ## Controls
 
     stick / keypad arrows   move through lists, turn the name wheel
-    trigger                 select / join / accept
-    keypad 1-5              choose a move when it is your turn
+    stick left/right, knob  move the highlight along the move menu
+    trigger                 select / join / accept / bet the highlighted move
     keypad 0                poll now
     CE                      leave the table (name screen from the list)
     .                       how to play
@@ -128,9 +146,10 @@ transaction stream continues unbroken — `emu/resettest.lua` proves it.
 ## Testing
 
 `make smoke` runs MAME headless with `emu/smoke.lua`: launch from the OS
-menu, accept the default name, join a table by digit, then press keypad 2
-every 3 seconds so some presses land inside real move windows (the AI
-ROOM bots keep the hand moving), snapshot to `build/astrocde/0000.png`.
+menu, accept the default name, join a table by keypad digit, then every 3
+seconds twist the knob and pull the trigger so some presses land inside
+real move windows (the AI ROOM bots keep the hand moving), snapshot to
+`build/astrocde/0000.png`.
 `FUJINET_DEBUG=1` (default) logs every mailbox transaction; a `/move`
 shows as an OPEN with `txlen=69` against `/state`'s 67.
 
@@ -150,7 +169,7 @@ mailbox alive for it.
 
 Working end to end against the live server: table list, join, live
 rendering of 7-player bot tables across rounds and showdowns, moves,
-leave, the last-result banner, the your-turn cue, RESET continuity, and
+leave, the last-result banner, the full cue set, RESET continuity, and
 booting over the network. Not yet done: appkey persistence for the
 username (no Astrocade lobby exists to share it with yet), and nothing
 has run on real hardware, because the cartridge itself has not been

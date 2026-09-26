@@ -140,14 +140,18 @@ DEMOSCR:
         LD      DE,14*256+1
         LD      C,XKONW
         CALL    TXTAT
-        RET
+        LD      HL,DMSEL        ; the highlighted move, as BARMNU draws it
+        LD      DE,14*256+8
+        LD      C,XWONK
+        JP      TXTAT
 
 DTABLE: DB      "TABLE 1",0
 DROUND: DB      "ROUND 3",0
 DPOT:   DB      "POT",0
 DPURSE: DB      "PURSE 340  BET 25",0
 DCLOCK: DB      "12",0
-DMENU:  DB      "1 FOLD  2 CALL  3 RAISE",0
+DMENU:  DB      " FOLD   CALL   RAISE",0
+DMSEL:  DB      " CALL ",0
 DNAME0: DB      "YOU",0
 DNAME1: DB      "MOZZWALD",0
 DNAME2: DB      "ERICJ",0

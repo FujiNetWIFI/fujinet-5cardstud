@@ -120,7 +120,7 @@ NEWH4:  LD      HL,WHEEL
         LD      A,(HL)
         POP     HL
         LD      (HL),A
-NEDRW:  CALL    SNDKEY
+NEDRW:  CALL    SNDCUR
         CALL    NEDRAW
         JP      NEKEY
 
