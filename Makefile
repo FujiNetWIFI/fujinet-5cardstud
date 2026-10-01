@@ -64,6 +64,13 @@ LDFLAGS_EXTRA_COLECO += --generic-console -pragma-redirect:CRT_FONT=_font -m \
 
 LDFLAGS_EXTRA_APPLE2 = -C src/apple2/apple2-hgr.cfg
 
+# NES cartridge, with fujinet-lib-experimental's nes target. src/nes is guarded
+# by BUILD_NES the way src/coleco is. The linker config is the lib's FujiNet
+# layout with the CHR-ROM split so the game's own pattern table sits at $1000
+# beside the cc65 font the runtime insists on (see src/nes/nes.cfg).
+CFLAGS_EXTRA_NES = -DBUILD_NES
+NES_CFG = src/nes/nes.cfg
+
 # CoCo 3 build: same sources as CoCo 1/2, compiled with -DCOCO3 for the
 # standard 320x200x16 GIME mode. Framebuffer lives at $8000 via MMU
 # Task 1, so the program can occupy more low memory than the CoCo 1/2
@@ -136,6 +143,27 @@ coleco-smoke: $(COLECO_ROM)
 	./mame coleco -cartslot fujinet -cart $(COLECO_ROM) \
 	    -video none -sound none -nothrottle -seconds_to_run $(SECS) \
 	    -autoboot_script $(CURDIR)/support/coleco/smoke.lua
+
+# NES: headless smoke test in MAME's nes driver, against a live fujinet-pc,
+# the same shape as coleco-smoke. The MAME tree needs
+# fujinet-firmware/pico/nes/emu/apply.sh run against it once for
+# -nes_slot fujinet to exist.
+#
+#   make nes-smoke                           print the screen
+#   make nes-smoke EXPECT="5 CARD STUD"      and assert on it
+#   make nes-smoke SCRIPT="a,wait5,a"        drive the joypad first
+#                                            (a b select start up down left right waitN)
+NES_ROM := $(CURDIR)/r2r/nes/$(PRODUCT).nes
+
+.PHONY: nes-smoke
+
+nes-smoke: $(NES_ROM)
+	cd $(MAME_DIR) && \
+	FCS_TILEMAP=$(CURDIR)/support/nes/tilemap.lua FCS_AT=$(AT) FCS_EXPECT="$(EXPECT)" \
+	FCS_SCRIPT="$(SCRIPT)" FCS_SETTLE=$(SETTLE) \
+	./mame nes -nes_slot fujinet -cart $(NES_ROM) \
+	    -video none -sound none -nothrottle -seconds_to_run $(SECS) \
+	    -autoboot_script $(CURDIR)/support/nes/smoke.lua
 
 # CoCo targets:
 #   make coco        → CoCo 1/2 build
