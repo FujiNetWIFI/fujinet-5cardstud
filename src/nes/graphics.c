@@ -34,11 +34,15 @@
 #define STATUS_ROW (HEIGHT - 1)
 #define NO_TILE    0xFF             /* a padding blank mkchr.py never hands out */
 
-/* Palette 0: felt, white, red, black. */
+/* Palette 0: felt, white, red, black. Palette 1 is the same with grey for
+   white: the viewer's hidden hole card, as the Atari client shades it. */
 #define PAL_FELT  0x0A
 #define PAL_WHITE 0x30
+#define PAL_GREY  0x10
 #define PAL_RED   0x16
 #define PAL_BLACK 0x0F
+
+#define AT_BASE   0x23C0
 
 void __fastcall__ ppu_put(unsigned int addr, unsigned char val);   /* ppu.s */
 
@@ -46,6 +50,36 @@ bool always_render_full_cards = 0;
 
 /* What each cell shows, as a glyph code (ASCII or UDG_*). */
 static unsigned char shadow[HEIGHT][WIDTH];
+
+/* The nametable's attribute bytes, so a palette change writes only on change. */
+static unsigned char attr[64];
+
+/* Palette pal for the 2x2 block holding game cell (x,y). */
+static void setBlockPalette(unsigned char x, unsigned char y, unsigned char pal)
+{
+    unsigned char row = y + ROW0;
+    unsigned char i = ((row >> 2) << 3) | (x >> 2);
+    unsigned char shift = ((row & 2) << 1) | (x & 2);
+    unsigned char v = (attr[i] & ~(3 << shift)) | (pal << shift);
+
+    if (v != attr[i])
+    {
+        attr[i] = v;
+        ppu_put(AT_BASE + i, v);
+    }
+}
+
+/* Grey (or not) the card face at x..x+1, rows y..y+4. Only an even x lines up
+   with the attribute grid; seat 0's hole card always does (vars.c). */
+static void shadeCard(unsigned char x, unsigned char y, bool grey)
+{
+    unsigned char i;
+
+    if (x & 1)
+        return;
+    for (i = 0; i < 5; i += 2)
+        setBlockPalette(x, y + i, grey);
+}
 
 static void put(unsigned char x, unsigned char y, unsigned char glyph, unsigned char tile)
 {
@@ -103,19 +137,22 @@ void initGraphics()
     for (i = 0; i < 8; i++)
     {
         PPU_DATA = PAL_FELT;
-        PPU_DATA = PAL_WHITE;
+        PPU_DATA = i == 1 ? PAL_GREY : PAL_WHITE;
         PPU_DATA = PAL_RED;
         PPU_DATA = PAL_BLACK;
     }
 
-    // Nametable 0: blanks on felt, palette 0 everywhere.
+    // Nametable 0: blanks on felt for the 24 game rows, black blanks in the
+    // overscan rows above and below (the TMS9918 ports' border); palette 0
+    // everywhere.
     PPU_ADDR = 0x20;
     PPU_ADDR = 0x00;
     for (i = 0; i < 960; i++)
-        PPU_DATA = T_TEXT;
+        PPU_DATA = (i < ROW0 * 32 || i >= (ROW0 + HEIGHT) * 32) ? T_STATUS : T_TEXT;
     for (i = 0; i < 64; i++)
         PPU_DATA = 0;
     memset(shadow, ' ', sizeof shadow);
+    memset(attr, 0, sizeof attr);
 
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
@@ -187,13 +224,24 @@ void drawLogo()
     drawText(WIDTH/2-5,++i, "           ");
 }
 
+/* Set while a two-line status message has taken row 22 for the bar. */
+static bool tallStatus;
+
 void clearStatusBar()
 {
     unsigned char x;
-    // Row 23 only; row 22 is left alone deliberately, as the border aces and
-    // bottom-seat cards extend into it.
+    // Row 23 only; row 22 is otherwise left alone, as the border aces extend
+    // into it -- unless a two-line message took it, when it goes back to felt.
     for (x = 0; x < WIDTH; x++)
         put(x, STATUS_ROW, ' ', T_STATUS);
+    if (tallStatus)
+    {
+        tallStatus = false;
+        put(0, 22, UDG_SCREEN_BL, T_SCREEN_BL_GK);
+        for (x = 1; x < WIDTH-1; x++)
+            put(x, 22, ' ', T_TEXT);
+        put(WIDTH-1, 22, UDG_SCREEN_BR, T_SCREEN_BR_GK);
+    }
 }
 
 /**
@@ -207,6 +255,12 @@ void resetScreen()
         for (x = 0; x < WIDTH; x++)
             put(x, y, ' ', T_TEXT);
     clearStatusBar();
+    for (x = 0; x < sizeof attr; x++)
+        if (attr[x])
+        {
+            attr[x] = 0;
+            ppu_put(AT_BASE + x, 0);
+        }
 
     // Round the felt off against the border/status bar, like the MS-DOS build.
     put(0, 0, UDG_SCREEN_TL, T_SCREEN_TL_GK);
@@ -258,6 +312,9 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
     }
     else // FULL CARD
     {
+        // A hidden hole card is greyed, rather than banded, where it can be.
+        shadeCard(x, y, isHidden && s[0] != '?');
+
         switch (s[1])
         {
         case 'h' :
@@ -362,7 +419,7 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
 
             // Interior (hole-card marker band if hidden)
             y++;
-            if (isHidden)
+            if (isHidden && (x & 1))
             {
                 put(x, y, UDG_HIDDEN_L, T_HIDDEN_L_RW);
                 put(x+1, y, UDG_HIDDEN_R, T_HIDDEN_R_RW);
@@ -395,10 +452,42 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
     }
 }
 
+/* Up to n characters of s on the status bar, white on black. */
+static void putStatus(unsigned char x, unsigned char y, const char *s, unsigned char n)
+{
+    unsigned char c;
+
+    while (n-- && (c = (unsigned char) *s++) != 0 && x < WIDTH)
+    {
+        c = textGlyph(c);
+        put(x++, y, c, T_STATUS + (c - 0x20));
+    }
+}
+
+/* A message too long for one row (the round result) takes row 22 into the
+   bar as well, word-wrapped across the two. */
 void drawStatusTextAt(unsigned char x, const char* s)
 {
-    unsigned char y = 22 + (strlen(s) <= WIDTH ? 1 : 0);
-    putText(x, y, s, y == STATUS_ROW ? T_STATUS : T_TEXT);
+    unsigned char brk, i;
+
+    if (strlen(s) <= WIDTH)
+    {
+        putStatus(x, STATUS_ROW, s, WIDTH);
+        return;
+    }
+
+    for (brk = WIDTH; brk > 0 && s[brk] != ' '; brk--) ;
+    if (brk == 0)
+        brk = WIDTH;
+
+    tallStatus = true;
+    for (i = 0; i < WIDTH; i++)
+    {
+        put(i, 22, ' ', T_STATUS);
+        put(i, STATUS_ROW, ' ', T_STATUS);
+    }
+    putStatus(0, 22, s, brk);
+    putStatus(0, STATUS_ROW, s + brk + (s[brk] == ' '), WIDTH);
 }
 
 void drawStatusText(const char* s)
