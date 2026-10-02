@@ -1,0 +1,28 @@
+ca65 V2.19 - Git 92fa7cb23
+Main file   : src/nes/ppu.s
+Current file: src/nes/ppu.s
+
+000000r 1               ; ppu.s -- one PPU write through cc65's NMI-flushed ring buffer.
+000000r 1               ;
+000000r 1               ; The game draws whenever it likes; the writes queue here and the NES runtime's
+000000r 1               ; vblank handler (crt0.s nmi -> ppubuf_flush) lands them while rendering is
+000000r 1               ; off. ppubuf_put blocks when the queue is full, so this needs NMI enabled --
+000000r 1               ; initGraphics() turns it on before the first call.
+000000r 1               
+000000r 1                       .export         _ppu_put
+000000r 1                       .import         popax, ppubuf_put
+000000r 1                       .importzp       tmp1
+000000r 1               
+000000r 1               ; void __fastcall__ ppu_put(unsigned addr, unsigned char val)
+000000r 1               .proc   _ppu_put
+000000r 1  85 rr                sta     tmp1
+000002r 1  20 rr rr             jsr     popax           ; A = addr low, X = addr high
+000005r 1  48                   pha
+000006r 1  8A                   txa
+000007r 1  A8                   tay                     ; Y = high
+000008r 1  68                   pla
+000009r 1  AA                   tax                     ; X = low
+00000Ar 1  A5 rr                lda     tmp1
+00000Cr 1  4C rr rr             jmp     ppubuf_put      ; A = value, X = low, Y = high
+00000Fr 1               .endproc
+00000Fr 1               

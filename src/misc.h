@@ -184,9 +184,9 @@ extern char prefs[4];
 
 
 // Screen specific player/bet coordinates. These are declared by each platform's
-// own vars.h as well; the ColecoVision makes them const so they land in ROM
-// rather than spending 96 bytes of a 1K machine on tables nobody writes.
-#ifndef BUILD_COLECO
+// own vars.h as well; the ColecoVision and NES make them const so they land
+// in ROM rather than spending 96 bytes of RAM on tables nobody writes.
+#if !defined(BUILD_COLECO) && !defined(BUILD_NES)
 extern unsigned char playerXMaster[] ;
 extern unsigned char playerYMaster[] ;
 extern char playerDirMaster[] ;
