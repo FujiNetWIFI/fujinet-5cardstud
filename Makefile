@@ -153,6 +153,7 @@ coleco-smoke: $(COLECO_ROM)
 #   make nes-smoke EXPECT="5 CARD STUD"      and assert on it
 #   make nes-smoke SCRIPT="a,wait5,a"        drive the joypad first
 #                                            (a b select start up down left right waitN)
+#   make nes-play                            play it in a window, with sound
 NES_ROM := $(CURDIR)/r2r/nes/$(PRODUCT).nes
 
 .PHONY: nes-smoke
@@ -164,6 +165,11 @@ nes-smoke: $(NES_ROM)
 	./mame nes -nes_slot fujinet -cart $(NES_ROM) \
 	    -video none -sound none -nothrottle -seconds_to_run $(SECS) \
 	    -autoboot_script $(CURDIR)/support/nes/smoke.lua
+
+.PHONY: nes-play
+
+nes-play: $(NES_ROM)
+	cd $(MAME_DIR) && ./mame nes -nes_slot fujinet -cart $(NES_ROM) -window
 
 # CoCo targets:
 #   make coco        → CoCo 1/2 build

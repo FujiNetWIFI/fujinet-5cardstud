@@ -1,7 +1,7 @@
 #ifdef BUILD_NES
 
 /**
- * @brief   NES Sound Routines (2A03 APU, pulse channel 1)
+ * @brief   NES Sound Routines (2A03 APU, pulse channels 1+2)
  * @author  Thomas Cherryhomes
  * @email   thom dot cherryhomes at gmail dot com
  * @license gpl v. 3, see LICENSE for details
@@ -15,10 +15,16 @@ void waitvsync(void);
 #define PULSE1_SWEEP  (*(volatile uint8_t *) 0x4001)
 #define PULSE1_LO     (*(volatile uint8_t *) 0x4002)
 #define PULSE1_HI     (*(volatile uint8_t *) 0x4003)
+#define PULSE2_CTRL   (*(volatile uint8_t *) 0x4004)
+#define PULSE2_SWEEP  (*(volatile uint8_t *) 0x4005)
+#define PULSE2_LO     (*(volatile uint8_t *) 0x4006)
+#define PULSE2_HI     (*(volatile uint8_t *) 0x4007)
 #define APU_STATUS    (*(volatile uint8_t *) 0x4015)
 
 #define PULSE_ON  0xBF          /* 50% duty, length halted, constant volume 15 */
 #define PULSE_OFF 0xB0          /* same, volume 0 */
+
+#define MIN_GATE  3             /* shorter blips are barely audible */
 
 /**
  * @brief Brain dead beep routine
@@ -35,14 +41,27 @@ void beep(int hz, int gate, int postGate)
     if (t > 0x7FF)
         t = 0x7FF;
 
-    PULSE1_LO = t & 0xFF;
-    PULSE1_HI = t >> 8;         /* also restarts the phase */
-    PULSE1_CTRL = PULSE_ON;
+    // Stretch short blips, taking the extra out of the rest so the cue
+    // keeps its rhythm.
+    if (gate < MIN_GATE)
+    {
+        postGate -= MIN_GATE - gate;
+        if (postGate < 0)
+            postGate = 0;
+        gate = MIN_GATE;
+    }
+
+    // Both pulses in unison: one alone at volume 15 is quiet. The high
+    // writes restart the phase, so back to back they stay in step.
+    PULSE1_LO = PULSE2_LO = t & 0xFF;
+    PULSE1_HI = t >> 8;
+    PULSE2_HI = t >> 8;
+    PULSE1_CTRL = PULSE2_CTRL = PULSE_ON;
 
     while (gate--)
         waitvsync();
 
-    PULSE1_CTRL = PULSE_OFF;
+    PULSE1_CTRL = PULSE2_CTRL = PULSE_OFF;
 
     while (postGate--)
         waitvsync();
@@ -111,9 +130,9 @@ void soundSelectMove()
 
 void initSound()
 {
-    APU_STATUS = 0x01;          /* pulse 1 only */
-    PULSE1_SWEEP = 0x08;        /* sweep off, negate set so low notes are not muted */
-    PULSE1_CTRL = PULSE_OFF;
+    APU_STATUS = 0x03;          /* pulse 1 and 2 */
+    PULSE1_SWEEP = PULSE2_SWEEP = 0x08; /* sweep off, negate set so low notes are not muted */
+    PULSE1_CTRL = PULSE2_CTRL = PULSE_OFF;
 }
 
 void soundTakeChip(uint16_t counter)
