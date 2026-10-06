@@ -14,6 +14,7 @@
 #include "../msx/vars.h"
 #include "../coleco/vars.h"
 #include "../nes/vars.h"
+#include "../sms/vars.h"
 
 // Platform specific implementations
 unsigned char readJoystick();

@@ -14,6 +14,10 @@
 #include "coleco/joystick.h"
 #endif
 
+#ifdef BUILD_SMS
+#include "sms/joystick.h"
+#endif
+
 #ifdef _CMOC_VERSION_
 #include "coco/joystick.h"
 #else
