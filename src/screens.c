@@ -114,6 +114,8 @@ void showHelpScreen() {
   centerStatusText("PRESS FIRE TO CONTINUE");
 #elif defined(BUILD_NES)
   centerStatusText("PRESS A TO CONTINUE");
+#elif defined(BUILD_SMS)
+  centerStatusText("PRESS 1 TO CONTINUE");
 #else
   centerStatusText("PRESS A KEY TO CONTINUE");
 #endif
@@ -356,6 +358,10 @@ void showTableSelectionScreen() {
     // Buttons, not letters: src/nes/input.c maps them onto these shortcuts.
     //             12345678901234567890123456789012
     drawStatusText("A-JOIN  START-HELP  SELECT-NAME");
+#elif defined(BUILD_SMS)
+    // Buttons, not letters: src/sms/input.c maps them onto these shortcuts.
+    //             12345678901234567890123456789012
+    drawStatusText("1-JOIN <NAME >REFRESH PAUSE-HELP");
 #else               //12345678901234567890123456789012
     drawStatusText("R-EFRESH   H-ELP   N-AME   Q-UIT");
 #endif
@@ -542,6 +548,10 @@ void showInGameMenuScreen() {
     drawText(x,y,    "SEL+START: QUIT TABLE");
     drawText(x,y+=2, "START: HOW TO PLAY");
     drawText(x,y+=2, "B: KEEP PLAYING");
+#elif defined(BUILD_SMS)
+    drawText(x,y,    "  2+1: QUIT TABLE");
+    drawText(x,y+=2, "PAUSE: HOW TO PLAY");
+    drawText(x,y+=2, "    2: KEEP PLAYING");
 #else
     drawText(x,y,    "  Q: QUIT TABLE");
     drawText(x,y+=2, "  H: HOW TO PLAY");
