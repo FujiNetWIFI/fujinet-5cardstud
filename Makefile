@@ -31,7 +31,8 @@ PLATFORM_COMBOS = \
   atarixe+=atari \
   msxrom+=msx \
   msxdos+=msx \
-  adam_cpm+=adam
+  adam_cpm+=adam \
+  dragon+=coco
 
 CFLAGS_EXTRA_MSDOS = -q -otexan
 
@@ -83,17 +84,27 @@ LDFLAGS_EXTRA_SMS += -m -pragma-define:CRT_ENABLE_STDIO=0 \
 # Task 1, so the program can occupy more low memory than the CoCo 1/2
 # build, but must still leave room for the C stack at the top of
 # $6000-$7FFF (cmoc's default stack lives ~$7Fxx).
+COCO_ORG = 1000
 ifeq ($(MAKE_COCO3),COCO3)
   CFLAGS_EXTRA_COCO += -DCOCO3
-  LDFLAGS_EXTRA_COCO += --org=1000 --limit=7000
+  LDFLAGS_EXTRA_COCO += --org=$(COCO_ORG) --limit=7000
   COCO_CHARSET_SRC := support/coco/pmode3_coco3.fnt
 else
   # CoCo 1/2 hires screen lives at $6000 (src/coco/hires.h). cmoc's
   # default org of $2800 would place code/data straight through it, so
   # the program corrupts itself the moment the screen is cleared.
-  LDFLAGS_EXTRA_COCO += --org=1000 --limit=6000
+  LDFLAGS_EXTRA_COCO += --org=$(COCO_ORG) --limit=6000
   COCO_CHARSET_SRC := support/coco/pmode3.fnt
 endif
+
+## Dragon specific flags (cmoc)
+CFLAGS_EXTRA_DRAGON = \
+	-Wno-assign-in-condition \
+	--no-relocate \
+	--intermediate \
+	-DDRAGON \
+	--dragon
+LDFLAGS_EXTRA_DRAGON = --limit=7b00 --org=$(COCO_ORG) --dragon
 
 # Stage the active charset .fnt in build/ so src/coco/charset.s can
 # INCLUDEBIN a fixed path; the source it's copied from depends on
@@ -105,7 +116,7 @@ build/charset_active.fnt: $(COCO_CHARSET_SRC) | build
 build:
 	mkdir -p $@
 
-build/coco/src/coco/charset.o: build/charset_active.fnt
+build/%/src/coco/charset.o: build/charset_active.fnt
 
 include mekkogx/toplevel-rules.mk
 
