@@ -79,6 +79,14 @@ CFLAGS_EXTRA_SMS = -DBUILD_SMS
 LDFLAGS_EXTRA_SMS += -m -pragma-define:CRT_ENABLE_STDIO=0 \
   -pragma-define:CLIB_FOPEN_MAX=0
 
+# Atari 7800 cartridge, with the atari7800 target on fujinet-lib-experimental's
+# add-atari7800 branch:
+#   make FUJINET_LIB=<that lib's checkout> PLATFORMS=atari7800 atari7800
+# src/atari7800 is guarded by BUILD_ATARI7800 the way src/nes is. The screen is
+# the shared MARIA engine (src/atari7800/maria.s); r2r/atari7800 gets fcs.bin
+# for the cart and fcs.a78 for MAME.
+CFLAGS_EXTRA_ATARI7800 = -DBUILD_ATARI7800
+
 # CoCo 3 build: same sources as CoCo 1/2, compiled with -DCOCO3 for the
 # standard 320x200x16 GIME mode. Framebuffer lives at $8000 via MMU
 # Task 1, so the program can occupy more low memory than the CoCo 1/2
@@ -215,6 +223,44 @@ sms-smoke: $(SMS_ROM)
 
 sms-play: $(SMS_ROM)
 	cd $(MAME_DIR) && ./mame sms1 -slot fujinet -cart $(SMS_ROM) -window
+
+# Atari 7800: headless smoke test in MAME's a7800 driver, against a live
+# fujinet-pc, the same shape as nes-smoke. The MAME tree needs
+# fujinet-firmware/pico/atari-7800/emu/apply.sh run against it once for
+# -cartslot fujinet to exist; FUJINET_TCP in the environment moves the BoIP
+# address. Snapshots, MAME's nvram and cfg land in A7800_OUT.
+#
+#   make atari7800-smoke                        print the screen
+#   make atari7800-smoke EXPECT="5 CARD STUD"   and assert on it
+#   make atari7800-smoke SCRIPT="fire,wait5,shot"  drive the controls first
+#       (fire b2 reset select pause up down left right select+pause, waitN,
+#        ?TEXT to wait for TEXT on screen, shot)
+#   make atari7800-smoke A7800_SYSTEM=a7800p    a PAL console
+#   make atari7800-play                         play it in a window, with sound
+A7800_MAME_DIR ?= $(HOME)/Workspace/mame-a7800
+A7800_MAME     ?= ./a7800
+A7800_ROMPATH  ?= $(HOME)/Workspace/mame/roms
+A7800_SYSTEM   ?= a7800
+A7800_SECS     ?= 300
+A7800_ROM      := $(CURDIR)/r2r/atari7800/$(PRODUCT).a78
+A7800_OUT      ?= $(CURDIR)/build/atari7800/mame
+A7800_ARGS      = $(A7800_SYSTEM) -rompath $(A7800_ROMPATH) -cartslot fujinet -cart $(A7800_ROM) \
+                  -snapshot_directory $(A7800_OUT)/snap -nvram_directory $(A7800_OUT)/nvram \
+                  -cfg_directory $(A7800_OUT)/cfg
+
+.PHONY: atari7800-smoke atari7800-play
+
+atari7800-smoke: $(A7800_ROM)
+	mkdir -p $(A7800_OUT)
+	cd $(A7800_MAME_DIR) && \
+	FCS_TILEMAP=$(CURDIR)/support/atari7800/tilemap.lua FCS_AT=$(AT) FCS_EXPECT="$(EXPECT)" \
+	FCS_SCRIPT="$(SCRIPT)" FCS_SETTLE=$(SETTLE) \
+	$(A7800_MAME) $(A7800_ARGS) -video none -sound none -nothrottle -seconds_to_run $(A7800_SECS) \
+	    -autoboot_script $(CURDIR)/support/atari7800/smoke.lua
+
+atari7800-play: $(A7800_ROM)
+	mkdir -p $(A7800_OUT)
+	cd $(A7800_MAME_DIR) && $(A7800_MAME) $(A7800_ARGS) -window
 
 # CoCo targets:
 #   make coco        → CoCo 1/2 build

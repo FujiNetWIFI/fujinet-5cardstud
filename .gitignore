@@ -56,3 +56,6 @@ dkms.conf
 
 # Build cache (downloaded fujinet-lib etc.)
 _cache/
+
+# Build output, including the MAME files the smoke targets write
+build/
