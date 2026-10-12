@@ -100,7 +100,31 @@ void main(void)
 
     // Get latest state and draw on screen, then prompt player for move if their turn
     if (getStateFromServer()) {
+#ifdef __H89__
+      /*
+        The H89's H19 terminal is on a 9600 baud line, and the table is
+        repainted in full every poll. Its renderer sends only the cells that
+        differ, so an unchanged repaint costs no bytes, but it still re-sweeps
+        the active player's highlight; skip the repaint when the fetched state
+        is what is already on screen. A one-word sum is enough: a rare
+        collision just defers a repaint to the next differing poll.
+        requestPlayerMove() still runs, so our own turn always draws.
+      */
+      {
+        static unsigned int lastDrawnSum = 1; // != any first real sum
+        unsigned int sum = 0;
+        unsigned int n;                        // Game is over 255 bytes
+        unsigned char *sp = &clientState.firstByte;
+        for (n = 0; n < sizeof(Game); n++)
+          sum += sp[n] ^ (unsigned char)n;     // position-weighted vs byte swaps
+        if (sum != lastDrawnSum) {
+          lastDrawnSum = sum;
+          showGameScreen();
+        }
+      }
+#else
       showGameScreen();
+#endif
       requestPlayerMove();
     } else {
        // Wait a bit to avoid hammering the server if getting bad responses

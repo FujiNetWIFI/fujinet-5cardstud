@@ -81,6 +81,10 @@
 #define _Packed
 #endif
 
+#ifdef __H89__
+#define _Packed
+#endif
+
 typedef _Packed struct {
   char table    [9];
   char name     [21];

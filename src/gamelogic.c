@@ -36,6 +36,13 @@ extern unsigned char redrawGameScreen;
 #define LEFT_JUSTIFY_PLAYER_PURSE 0
 #endif
 
+// Columns from a seat's first card to the card n steps along its fan: a
+// step is a column on the tile platforms, whose cards are 3 wide and overlap
+// the one before but for its first two. The H89's are 5 wide, every 4.
+#ifndef CARD_OFFSET
+#define CARD_OFFSET(n) (n)
+#endif
+
 void progressAnim(unsigned char y) {
   for(i=0;i<3;++i) {
     pause(10);
@@ -94,8 +101,16 @@ void drawNamePurse() {
     // Print name, left or right justified based on direction
     y = playerY[i]-1;
     x = playerX[i];
+    // A right-side seat's name and purse end at the second column of its
+    // first card -- or, where a platform sets NAME_RIGHT_X, that many columns
+    // along (the H89's right edge). Not x+=1 by default: sccz80 compiles that
+    // longer than x++.
     if (playerDir[i]<0)
+#ifdef NAME_RIGHT_X
+      x+=NAME_RIGHT_X;
+#else
       x++;
+#endif
 
     if (i>0 || state.viewing) {
       xx=x;
@@ -248,7 +263,7 @@ void drawCards(bool finalFlip) {
         dummy = doAnim || hand[0]!='?' || state.players[i].status != 1;
         
         drawCard(
-          playerX[i]+((!fullFirst)*xOffset+(fullFirst)*(j-1))*playerDir[i],
+          playerX[i]+CARD_OFFSET((!fullFirst)*xOffset+(fullFirst)*(j-1))*playerDir[i],
           playerY[i],
           //doAnim || hand[0]!='?' || state.players[i].status != 1 ? FULL_CARD : playerDir[i]>0 ? PARTIAL_LEFT : PARTIAL_RIGHT,
           dummy ? FULL_CARD : playerDir[i]>0 ? PARTIAL_LEFT : PARTIAL_RIGHT,
@@ -285,7 +300,7 @@ void drawCards(bool finalFlip) {
         continue;
 
       for (j=1;j<=9; j+=2) {
-        drawCard(playerX[i]+(j-1)*playerDir[i], playerY[i], FULL_CARD,state.players[i].hand+j-1, false);
+        drawCard(playerX[i]+CARD_OFFSET(j-1)*playerDir[i], playerY[i], FULL_CARD,state.players[i].hand+j-1, false);
       }
 
       soundDealCard();
