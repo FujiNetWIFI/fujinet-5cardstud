@@ -116,7 +116,7 @@ void showHelpScreen() {
   centerStatusText("PRESS A TO CONTINUE");
 #elif defined(BUILD_SMS)
   centerStatusText("PRESS 1 TO CONTINUE");
-#elif defined(BUILD_ATARI7800)
+#elif defined(BUILD_ATARI7800) || defined(BUILD_ATARI5200)
   centerStatusText("PRESS FIRE TO CONTINUE");
 #else
   centerStatusText("PRESS A KEY TO CONTINUE");
@@ -350,7 +350,11 @@ void showTableSelectionScreen() {
     }
     
     //drawStatusText(" R+EFRESH  H+ELP  C+OLOR  S+OUND  Q+UIT");
-#if WIDTH>=40 
+#if defined(BUILD_ATARI5200)
+    // Keypad, not letters: src/atari5200/input.c maps 1-5 onto these shortcuts.
+    //             1234567890123456789012345678901234567890
+    drawStatusText("1-REFRESH 2-HELP 3-COLOR 4-NAME 5-QUIT");
+#elif WIDTH>=40 
     drawStatusText("R-EFRESH   H-ELP  C-OLOR   N-AME   Q-UIT");
 #elif defined(BUILD_COLECO)
     // Keypad, not letters: src/coleco/input.c maps 1-5 onto these shortcuts.
@@ -562,6 +566,12 @@ void showInGameMenuScreen() {
     drawText(x-2,y,    "SEL+PAUSE: QUIT TABLE");
     drawText(x-2,y+=2, "PAUSE: HOW TO PLAY");
     drawText(x-2,y+=2, "2: KEEP PLAYING");
+#elif defined(BUILD_ATARI5200)
+    // The font has no * or #: RESET is the labelled key that backs out.
+    drawText(x,y,    "    5: QUIT TABLE");
+    drawText(x,y+=2, "    2: HOW TO PLAY");
+    drawText(x,y+=2, "    3: TABLE COLOR");
+    drawText(x,y+=2, "RESET: KEEP PLAYING");
 #else
     drawText(x,y,    "  Q: QUIT TABLE");
     drawText(x,y+=2, "  H: HOW TO PLAY");

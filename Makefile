@@ -87,6 +87,16 @@ LDFLAGS_EXTRA_SMS += -m -pragma-define:CRT_ENABLE_STDIO=0 \
 # for the cart and fcs.a78 for MAME.
 CFLAGS_EXTRA_ATARI7800 = -DBUILD_ATARI7800
 
+# Atari 5200 cartridge, with the atari5200 target on fujinet-lib-experimental's
+# add-atari5200 branch:
+#   make FUJINET_LIB=<that lib's checkout> PLATFORMS=atari5200 atari5200
+# src/atari5200 is guarded by BUILD_ATARI5200 the way src/atari7800 is. The
+# screen is the 8-bit client's ANTIC one (src/atari5200/antic.s), whose two
+# screens and player/missile memory take the top 4K of the console's RAM.
+# r2r/atari5200 gets fcs.bin, for the cart and for MAME alike.
+CFLAGS_EXTRA_ATARI5200 = -DBUILD_ATARI5200
+LDFLAGS_EXTRA_ATARI5200 = -Wl -D,__RESERVED_MEMORY__=0x1000
+
 # CoCo 3 build: same sources as CoCo 1/2, compiled with -DCOCO3 for the
 # standard 320x200x16 GIME mode. Framebuffer lives at $8000 via MMU
 # Task 1, so the program can occupy more low memory than the CoCo 1/2
@@ -261,6 +271,41 @@ atari7800-smoke: $(A7800_ROM)
 atari7800-play: $(A7800_ROM)
 	mkdir -p $(A7800_OUT)
 	cd $(A7800_MAME_DIR) && $(A7800_MAME) $(A7800_ARGS) -window
+
+# Atari 5200: headless smoke test in MAME's a5200 driver, against a live
+# fujinet-pc, the same shape as atari7800-smoke. The MAME tree needs
+# fujinet-firmware/pico/atari-5200/emu/apply.sh run against it once for
+# -cartslot fujinet to exist; FUJINET_TCP in the environment moves the BoIP
+# address. Snapshots, MAME's nvram and cfg land in A5200_OUT.
+#
+#   make atari5200-smoke                        print the screen
+#   make atari5200-smoke EXPECT="5 CARD STUD"   and assert on it
+#   make atari5200-smoke SCRIPT="fire,wait5,shot"  drive the controller first
+#       (fire b2 up down left right, k0-k9 star hash start pause reset, waitN,
+#        ?TEXT to wait for TEXT on screen, shot)
+#   make atari5200-play                         play it in a window, with sound
+A5200_MAME_DIR ?= $(HOME)/Workspace/mame-a5200
+A5200_MAME     ?= ./a5200
+A5200_ROMPATH  ?= $(HOME)/Workspace/mame/roms
+A5200_SECS     ?= 300
+A5200_ROM      := $(CURDIR)/r2r/atari5200/$(PRODUCT).bin
+A5200_OUT      ?= $(CURDIR)/build/atari5200/mame
+A5200_ARGS      = a5200 -rompath $(A5200_ROMPATH) -skip_gameinfo -cartslot fujinet \
+                  -cart $(A5200_ROM) -snapshot_directory $(A5200_OUT)/snap \
+                  -nvram_directory $(A5200_OUT)/nvram -cfg_directory $(A5200_OUT)/cfg
+
+.PHONY: atari5200-smoke atari5200-play
+
+atari5200-smoke: $(A5200_ROM)
+	mkdir -p $(A5200_OUT)
+	cd $(A5200_MAME_DIR) && \
+	FCS_AT=$(AT) FCS_EXPECT="$(EXPECT)" FCS_SCRIPT="$(SCRIPT)" FCS_SETTLE=$(SETTLE) \
+	$(A5200_MAME) $(A5200_ARGS) -video none -sound none -nothrottle -seconds_to_run $(A5200_SECS) \
+	    -autoboot_script $(CURDIR)/support/atari5200/smoke.lua
+
+atari5200-play: $(A5200_ROM)
+	mkdir -p $(A5200_OUT)
+	cd $(A5200_MAME_DIR) && $(A5200_MAME) $(A5200_ARGS) -window
 
 # CoCo targets:
 #   make coco        → CoCo 1/2 build

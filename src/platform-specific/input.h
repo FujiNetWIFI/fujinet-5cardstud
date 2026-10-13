@@ -16,6 +16,7 @@
 #include "../nes/vars.h"
 #include "../sms/vars.h"
 #include "../atari7800/vars.h"
+#include "../atari5200/vars.h"
 
 // Platform specific implementations
 unsigned char readJoystick();
