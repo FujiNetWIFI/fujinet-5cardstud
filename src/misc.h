@@ -188,9 +188,10 @@ extern char prefs[4];
 
 
 // Screen specific player/bet coordinates. These are declared by each platform's
-// own vars.h as well; the ColecoVision, NES and 7800 make them const so they
-// land in ROM rather than spending 96 bytes of RAM on tables nobody writes.
-#if !defined(BUILD_COLECO) && !defined(BUILD_NES) && !defined(BUILD_ATARI7800)
+// own vars.h as well; the ColecoVision, NES, 7800 and 5200 make them const so
+// they land in ROM rather than spending 96 bytes of RAM on tables nobody writes.
+#if !defined(BUILD_COLECO) && !defined(BUILD_NES) && !defined(BUILD_ATARI7800) \
+    && !defined(BUILD_ATARI5200)
 extern unsigned char playerXMaster[] ;
 extern unsigned char playerYMaster[] ;
 extern char playerDirMaster[] ;
