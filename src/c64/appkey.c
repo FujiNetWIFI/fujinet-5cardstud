@@ -13,30 +13,40 @@
 #include "../platform-specific/appkey.h"
 #include "../misc.h"
 
-#define FUJICMD_OPEN_APPKEY 0xDC
-#define FUJICMD_WRITE_APPKEY 0xDE
-#define FUJICMD_READ_APPKEY 0xDD
+#ifndef USE_EMULATOR
+
+#include <fujinet-fuji.h>
+
+void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char* data)
+{
+  uint16_t read = 0;
+
+  fuji_set_appkey_details(creator_id, app_id, DEFAULT);
+  if (!fuji_read_appkey(key_id, &read, (uint8_t *)data))
+    read = 0;
+
+  // Add string terminator at end
+  data[read] = 0;
+}
+
+void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, const char *data)
+{
+  fuji_set_appkey_details(creator_id, app_id, DEFAULT);
+  fuji_write_appkey(key_id, strlen(data), (uint8_t *)data);
+}
+
+#else
 
 #define LFN 15
+#define DEV 11
+#define OPEN_APPKEY_DELIM "-"
 
 typedef struct {
   unsigned char command;
   appkeyblock payload; // The appkey (see appkey.h)
 } appkeyC64;
 
-appkeyC64 appkey;
-
-#ifdef USE_EMULATOR
-  #define DEV 11
-  #define SEC_NUM 0
-  #define OPEN_APPKEY_PREFIX "appkey-"
-  #define OPEN_APPKEY_DELIM "-"
-#else
-  #define DEV 30  // The FujiNet device #
-  #define SEC_NUM 15
-  #define OPEN_APPKEY_PREFIX "openappkey:"
-  #define OPEN_APPKEY_DELIM ","
-#endif
+static appkeyC64 appkey;
 
 /**
  * @brief Open a key for reading or writing
@@ -49,8 +59,6 @@ appkeyC64 appkey;
 unsigned char open_appkey(unsigned char open_mode, unsigned int creator_id, unsigned char app_id, char key_id)
 {
   static unsigned char appkey_error;
-
-  #ifdef USE_EMULATOR
 
   if (open_mode == APPKEY_WRITE)
     strcpy(appkey.payload.write.value, "s:");
@@ -67,12 +75,6 @@ unsigned char open_appkey(unsigned char open_mode, unsigned int creator_id, unsi
 
   strcat(appkey.payload.write.value, ".key");
 
-  // strcat(appkey.payload.write.value, OPEN_APPKEY_DELIM);
-  // itoa(open_mode, &appkey.payload.write.value[strlen(appkey.payload.write.value)], 10);
-
-  // strcat(appkey.payload.write.value, OPEN_APPKEY_DELIM);
-  // strcat(appkey.payload.write.value, "0");
-
   if (open_mode == APPKEY_WRITE) {
     appkey_error = cbm_open(LFN, DEV, 15, appkey.payload.write.value);
     cbm_close(LFN);
@@ -81,44 +83,20 @@ unsigned char open_appkey(unsigned char open_mode, unsigned int creator_id, unsi
   } else {
     appkey_error = cbm_open(LFN,DEV,open_mode,&appkey.payload.write);
   }
-  #else
-    appkey.command = FUJICMD_OPEN_APPKEY;
-    appkey.payload.open.creator = creator_id;
-    appkey.payload.open.app = app_id;
-    appkey.payload.open.key = key_id;
-    appkey.payload.open.mode = open_mode;
-    appkey.payload.open.reserved = 0;
-    cbm_open(LFN,DEV,SEC_NUM,"");
-    cbm_write(LFN, &appkey, sizeof(appkey));
-  #endif
-
-  #ifdef USE_EMULATOR
-    return appkey_error;
-  #endif
-
-  cbm_close(LFN);
 
   return appkey_error;
 }
-
-
 
 void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char* data)
 {
   static unsigned char appkey_error;
   static int read;
-  static unsigned int command = FUJICMD_READ_APPKEY;
 
   // Set output as empty string
   data[0]=0;
 
   if (appkey_error = open_appkey(APPKEY_READ, creator_id, app_id, key_id))
     return;
-
-  #ifndef USE_EMULATOR
-    cbm_close(LFN);
-    appkey_error = cbm_open(LFN,DEV,SEC_NUM,(const char *)&command);
-  #endif
 
   if (!appkey_error) {
     read = cbm_read(LFN, &appkey.payload, sizeof(appkey.payload.read));
@@ -153,13 +131,7 @@ void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char k
   appkey.payload.read.length = len;
   memcpy(&appkey.payload.read.value, data, appkey.payload.read.length);
 
-  #ifdef USE_EMULATOR
-    cbm_write(LFN, &appkey.payload.read, sizeof(appkey.payload.read));
-  #else
-    appkey.command = FUJICMD_WRITE_APPKEY;
-    cbm_open(LFN,DEV,SEC_NUM,"");
-    cbm_write(LFN, &appkey, sizeof(appkey));
-  #endif
+  cbm_write(LFN, &appkey.payload.read, sizeof(appkey.payload.read));
 
   cbm_close(LFN);
 
@@ -167,5 +139,7 @@ void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char k
 
   return;
 }
+
+#endif /* USE_EMULATOR */
 
 #endif /* __C64__ */
