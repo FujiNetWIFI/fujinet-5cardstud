@@ -1,34 +1,36 @@
-# o2/Makefile -- Odyssey 2 build.
+# Makefile -- 5 Card Stud for the Odyssey 2: build/5card.bin (build.sh).
+# Standalone, like intv/ and studio2/: not part of the root mekkogx build.
 #
-# Standalone, like intv/Makefile: the root build drives cc65/cmoc-family C
-# toolchains, and Macroassembler AS + p2bin is a different toolchain entirely.
-# build.sh does the real work (it has to locate AS, which is not packaged for
-# most distributions); this is the convenience wrapper.
+#   make                  the image, against the live server
+#   make ENDPOINT=http://host:port/
+#   make spike            the table engine's test pattern (build/spike)
+#   make run              play it in a MAME window (run.sh)
+#   make shot             the spike in MAME, headless, and tools/rowcheck.py
+#   make rig              build for the private server (test/rig.sh)
+#   make test             the live scenarios against the private rig
+#   make soak             an AUTOPLAY build plays hands at an AI table
 
-PRODUCT = 5card
-# Every source, or `make` will not notice one changing. The order mirrors
-# 5card.a48's own includes: the resident half, then what every bank carries,
-# then the one screen each bank holds.
-SOURCES = $(PRODUCT).a48 o2fuji.inc vdctext.inc charmap.inc g7000.h \
-          fujilib.inc bankjmp.inc fujistub.inc \
-          mailbox.inc cycle.inc tail.inc \
-          url.inc net.inc lobby.inc entry.inc tableview.inc \
-          render.inc game.inc
+# Every target rebuilds: ENDPOINT and the flags are not files make can see.
+ENDPOINT ?= https://5card.carr-designs.com/
+RIG_ENDPOINT = http://localhost:8087/
 
-.PHONY: all run clean charmap
+all:
+	ENDPOINT='$(ENDPOINT)' ./build.sh
 
-all: build/$(PRODUCT).bin
+spike:
+	SPIKE=1 OUT=build/spike ./build.sh
 
-build/$(PRODUCT).bin: $(SOURCES) build.sh tools/checklayout.py tools/checkmb.py tools/checkp1.py tools/checkresident.py
-	./build.sh $(PRODUCT)
+shot: spike
+	O2SIM_SECONDS=20 python3 tools/o2sim.py test/scen/spike.scen build/spike/run build/spike/5card.bin
+	python3 tools/rowcheck.py build/spike/run rows
 
-# charmap.inc is generated and committed; regenerate it only when the glyph
-# table or the row Y changes.
-charmap:
-	python3 tools/genmap.py > charmap.inc
-
-run: build/$(PRODUCT).bin
+run: all
 	./run.sh
+
+rig:
+	ENDPOINT='$(RIG_ENDPOINT)' ./build.sh
 
 clean:
 	rm -rf build
+
+.PHONY: all spike shot run rig clean
