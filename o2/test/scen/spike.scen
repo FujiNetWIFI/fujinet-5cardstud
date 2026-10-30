@@ -1,0 +1,4 @@
+# spike.scen -- the SPIKE build's table: a still, then a burst for rowcheck.
+wait 120
+snap table
+burst rows 60

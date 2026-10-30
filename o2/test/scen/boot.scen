@@ -1,0 +1,16 @@
+# boot.scen -- the title, the name from the appkey, the table list, a join
+# at the AI table with two bots, and the table.
+wait 60
+snap title
+wait 300
+snap tables
+press down
+press down
+wait 10
+snap tables2
+press fire
+wait 300
+snap table
+wait 600
+snap table2
+xram 54 44
