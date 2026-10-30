@@ -25,6 +25,7 @@ on_state:
     call scr_table
     call rsig_clear
 os_up:
+    call spot_mark              ; the spotlight's marker leads the rows
     jmp rows_draw
 
 ; hdr_copy: the header's fields into XRAM; the clock's second begun; on our
@@ -236,10 +237,12 @@ seat_base:
     org 0C00h
     include "table.inc"
 
-; rows_draw: every row whose seat has changed since it was drawn.
-; Clobbers A, r0-r7.
+; rows_draw: every row whose seat has changed since it was drawn; ROWSNEW
+; if any has. Clobbers A, r0-r7.
 rows_draw:
     clr a
+    mov r0,#ROWSNEW
+    movx @r0,a
 rd_l:
     mov r0,#ROWN
     movx @r0,a
@@ -253,6 +256,9 @@ rd_l:
     xrl a,r4
     jz rd_n
     mov a,r4
+    movx @r0,a
+    mov r0,#ROWSNEW
+    mov a,#1
     movx @r0,a
     call grid_add               ; its new cards' faces first, then the
     call grid_flush             ; characters on them, then the faces of
@@ -362,9 +368,9 @@ osc_x:
     ret
 
 ; row_seat: row ROWN's seat into CARDS (its hand, or none: not playing or
-; folded), ROWNAME (its initial) and ROWNC (tan to move, cyan in the
-; spotlight, grey out of the hand, else white). A = a signature of all
-; that. Clobbers A, r0-r7.
+; folded), ROWNAME (its initial) and ROWNC (tan to move, grey out of the
+; hand, cyan us, else white). A = a signature of all that. Clobbers A,
+; r0-r7.
 row_seat:
     mov r0,#ROWN
     movx a,@r0
@@ -427,12 +433,8 @@ rs_init:
     mov a,r6
     xrl a,#PS_PLAYING
     jnz rs_col
-    mov r1,#C_CYAN              ; the spotlight, and us
+    mov r1,#C_CYAN              ; us (the spotlight is a sprite's)
     mov a,r5
-    jz rs_col
-    mov r0,#SPOT
-    movx a,@r0
-    xrl a,r5
     jz rs_col
     mov r1,#C_WHITE
 rs_col:
@@ -470,6 +472,8 @@ rs_h1:
 rs_x:
     mov a,r4
     ret
+
+    include "sprites.inc"
 
     if $ > 0F00h
     error "page $E has run out"

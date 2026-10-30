@@ -1,8 +1,9 @@
 ; p6.inc -- page 6: the table, when a state has come, after page 3 (the
 ; same pass of the main loop, so the reply is still the state's): T0 (the
-; pot, our purse), T1 (whose turn and what they did, or the hand's result;
-; on our turn the menu is page 4's), and the sounds. Then the state is the
-; screen's: LROUND, LACTV.
+; pot, our purse, and their stacks of chips), T1 (whose turn and what they
+; did, or the hand's result; on our turn the menu is page 4's), the sounds,
+; and the chips of the street's bets. Then the state is the screen's:
+; LROUND, LACTV.
 
     PAGE_HEAD
     db e_state2&0FFh
@@ -13,6 +14,11 @@ on_state2:
     call t0_draw
     call t1_state
     call cues
+    mov r0,#ROWSNEW             ; a bet comes with a row redrawn: a turn
+    movx a,@r0                  ; passed, a street dealt, a scroll
+    jz os2_c
+    call chips
+os2_c:
     mov r0,#ROUND
     movx a,@r0
     mov r0,#LROUND
@@ -284,6 +290,69 @@ slc_2:
     djnz r4,sl_copy
     ret
 
+; chips: sprite 1 down the rows (fixed.inc row_write): a chip beside each
+; seat with a bet in this street (rounds 1-4) -- the server moves the bets
+; into the pot as the next is dealt. Rows 0-6: the hand's bottom row has
+; none. Clobbers A, r0-r7.
+chips:
+    mov r7,#0                   ; the row
+    mov r4,#(ROWS+ROW_SPR)&0FFh ; its chip's Y in ROWS
+    mov r5,#Y_ROW0+CHIPDY       ; and the chip's place
+cp_l:
+    mov a,r7                    ; its seat: us on row 6, else OPPOFF + row
+    xrl a,#6
+    jz cp_seat
+    mov r0,#OPPOFF
+    movx a,@r0
+    add a,r7
+cp_seat:
+    mov r1,a
+    call our_round              ; (the showdown's pot has the bets, but the
+    mov r3,#SPR_OFF             ; seats still show them)
+    jz cp_put
+    mov a,r1
+    cpl a
+    mov r3,a
+    mov r0,#NSEAT
+    movx a,@r0
+    add a,r3                    ; carry: NSEAT > seat
+    mov r3,#SPR_OFF
+    jnc cp_put
+    mov a,r1
+    call seat_base
+    mov a,r2
+    add a,#SE_BET
+    mov r2,a
+    clr a
+    addc a,r3
+    mov r3,a
+    call st_byte
+    mov r1,a
+    inc r2                      ; (no seat's bet straddles a 256)
+    call st_byte
+    orl a,r1
+    mov r3,#SPR_OFF
+    jz cp_put
+    mov a,r5
+    mov r3,a
+cp_put:
+    mov r2,#ROWS>>8
+    mov a,r4
+    call poke_at
+    mov a,r3
+    call poke_b
+    mov a,r4
+    add a,#ROW_TAB
+    mov r4,a
+    mov a,r5
+    add a,#ROW_PITCH
+    mov r5,a
+    inc r7
+    mov a,r7
+    xrl a,#7
+    jnz cp_l
+    ret
+
     if $ > 0D00h
     error "page $C has run out"
     endif
@@ -376,8 +445,57 @@ lr_say:
     mov r4,#L_BOT
     jmp say_line_c
 
-; t0_draw: T0 = "POT n" on the left, our purse "$n" on the right.
-; Clobbers A, r0-r7.
+; stack: a stack of chips for r5:r4 (kept) into the sprite shape at r0: one
+; from 1, two from 25, three from 100, four from 250, from the bottom, a
+; line of felt between. Clobbers A, r0, r1, r6.
+stack:
+    mov r1,#STACK_N
+    mov a,r5
+    jnz sk_n
+    mov r1,#0
+    mov a,r4
+    jz sk_n
+    inc r1
+    add a,#256-25
+    jnc sk_n
+    inc r1
+    mov a,r4
+    add a,#256-100
+    jnc sk_n
+    inc r1
+    mov a,r4
+    add a,#256-250
+    jnc sk_n
+    inc r1
+sk_n:
+    mov a,r1
+    cpl a
+    add a,#STACK_N+1
+    mov r6,a                    ; the empty places above
+    mov r1,#STACK_N
+    mov a,#P1_VDC
+    outl p1,a
+sk_l:
+    clr a                       ; felt
+    movx @r0,a
+    inc r0
+    mov a,r6
+    jz sk_chip
+    dec r6
+    clr a
+    jmp sk_put
+sk_chip:
+    mov a,#7Eh                  ; a chip, edge on
+sk_put:
+    movx @r0,a
+    inc r0
+    djnz r1,sk_l
+    mov a,#P1_MAIN
+    outl p1,a
+    ret
+
+; t0_draw: T0 = "POT n" on the left, our purse "$n" on the right, each
+; with its stack of chips to its left. Clobbers A, r0-r7.
 t0_draw:
     call lb_clear
     mov a,#s_pot&0FFh
@@ -389,6 +507,8 @@ t0_draw:
     inc r2
     call st_byte
     mov r5,a
+    mov r0,#vdc_spr2_shape
+    call stack
     mov r1,#LINEBUF+4
     call put_u16
     clr a                       ; our purse
@@ -404,6 +524,8 @@ t0_draw:
     inc r2
     call st_byte
     mov r5,a
+    mov r0,#vdc_spr3_shape
+    call stack
     mov r1,#LINEBUF+11
     mov a,#'$'
     movx @r1,a

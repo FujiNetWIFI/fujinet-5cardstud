@@ -36,9 +36,13 @@ purse. T1 at the bottom is your move menu and its clock on your turn,
 otherwise the seat in the spotlight (whose turn it is, or the one you
 picked) and what it did last, and between hands the result.
 
-A seat's letter is tan when it is to move, cyan in the spotlight, grey when
-it has folded or is out. At an eight-seat table one opponent is off the
-screen; the rows scroll to follow the spotlight.
+A seat's letter is tan when it is to move, grey when it has folded or is
+out, cyan for you. The four sprites are the chips and the spotlight: an
+arrow left of the seat in the spotlight, a chip between a seat's letter and
+its cards while it has a bet in this street, and in T0 a stack of chips by
+the pot and by your purse, one to four high (from 1, 25, 100, 250). At an
+eight-seat table one opponent is off the screen; the rows scroll to follow
+the spotlight.
 
 ### Screenshots
 
@@ -49,9 +53,9 @@ From MAME, against a private server:
 | ![title](screenshots/01_title.png) | ![name](screenshots/02_name.png) | ![tables](screenshots/03_tables.png) |
 | The title | Your name, the first time | The tables |
 | ![your move](screenshots/04_your_move.png) | ![their move](screenshots/05_their_move.png) | ![showdown](screenshots/06_showdown.png) |
-| Your move: check, 2 of 3, 35 seconds | Another's turn: what they did | The showdown: every hand up |
+| Your move: call, 2 of 3, 34 seconds; J has bet | Jim to move; Clyd has bet | The showdown: every hand up |
 | ![eight](screenshots/07_eight.png) | ![help](screenshots/08_help.png) | |
-| Eight seats | Help (H or ?) | |
+| Eight seats: Kirk called | Help (H or ?) | |
 
 ### How it's drawn
 
@@ -64,9 +68,15 @@ screen is the same rows on black, the singles side by side.
 What fits, measured in MAME (`make spike`, `make shot`):
 
 - **A row is 11 characters.** A band writes Y, pointer and control, 15
-  cycles a character, in the 10 lines between two rows; 11 leave about 14
-  cycles spare (`PADN`). So a seat's name is one letter: two would need 15
-  cycles and 28 bytes of the fixed half, which has neither.
+  cycles a character, in the 10 lines between two rows, then sprite 1's Y;
+  that leaves 6-9 cycles spare (`PADN` 2 holds, 4 cuts). So a seat's name
+  is one letter: two would need 15 cycles and 28 bytes of the fixed half,
+  which has neither.
+- **The chips are one sprite.** Each row's table ends with sprite 1's Y,
+  its chip's or below the screen, and the band that writes the row writes
+  it too: 5 cycles, and the sprite is down a row each band. The arrow and
+  the two stacks stay where the vblank puts them. A sprite shows only while
+  the foreground is on, so each one sits inside a row's 14 lines, or T0's.
 - **The gap between two rows of cards** is the grid switched off for 3 lines
   across the grid's row boundary, from inside the row write (`SEPA`,
   `SEPB`). Each write is placed after a chosen register so that it lands in
@@ -102,10 +112,10 @@ silent at run time: `checkflags` (a JZ testing a MOV), `checkobj` and
 | 0 | boot: cart check, name from the appkey, the table list, join |
 | 1 | the network: CLOSE, OPEN, STATUS until settled, READ; one step a frame |
 | 2 | the main loop: keys, stick, polls, dispatch |
-| 3 | a state: the header, our moves, the rows that changed; the title |
+| 3 | a state: the header, our moves, the spotlight's arrow, the rows that changed; the title |
 | 4 | every frame: the move menu, the clock, the spotlight, the result's pages |
 | 5 | help, and name entry |
-| 6 | a state, after page 3: T0, T1, the sounds |
+| 6 | a state, after page 3: T0 and its stacks, T1, the sounds, the chips |
 
 A state is taken only if its length is `154 + 33n`, and the table list only
 if it is `1 + 36n`.
@@ -135,5 +145,5 @@ second human; `rowcheck` steady while the game runs; the sounds
 
 - **Lobby handoff (appkey key 5).** There is no O2 lobby.
 - **PAL.** The band timing is NTSC's.
-- **Real hardware.** T0 at line 16 and T1 at line 228 may sit in a TV's
-  overscan.
+- **Real hardware.** T0 at line 16, T1 at line 228 and the spotlight's
+  arrow at the left edge may sit in a TV's overscan.
