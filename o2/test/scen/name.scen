@@ -1,0 +1,13 @@
+# name.scen -- no name in the appkey (rig NAME=): the boot asks; typed,
+# rubbed out, ended; then the table list.
+wait 300
+snap ask
+type DEALER
+key CLR
+key CLR
+type ER
+wait 10
+snap typed
+key ENT
+wait 200
+snap tables

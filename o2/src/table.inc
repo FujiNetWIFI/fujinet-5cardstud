@@ -225,6 +225,42 @@ put_cell:
     orl a,r1
     jmp poke_b
 
+; grid_add: the cards row ROWN's CARDS has, added to GRIDS (grid_flush puts
+; them on the screen; row_put takes away the ones gone). Clobbers A, r0-r3,
+; r6.
+grid_add:
+    mov r0,#ROWN                ; the row's bit
+    movx a,@r0
+    mov r2,a
+    inc r2
+    mov a,#80h
+ga_b:
+    rl a
+    djnz r2,ga_b
+    mov r3,a
+    mov r6,#0
+ga_l:
+    mov a,r6
+    rl a
+    add a,#CARDS
+    mov r0,a
+    movx a,@r0
+    orl a,#20h                  ; (NUL and space: no card)
+    xrl a,#' '
+    jz ga_n
+    mov a,r6
+    add a,#GRIDS
+    mov r0,a
+    movx a,@r0
+    orl a,r3
+    movx @r0,a
+ga_n:
+    inc r6
+    mov a,r6
+    xrl a,#NCARDS
+    jnz ga_l
+    ret
+
 ; grid_flush: GRIDS onto the grid (GRIDTAB, page $7): a card in every other
 ; column from CARD_COL0. h_top writes it. Clobbers A, r0-r2, r6.
 grid_flush:

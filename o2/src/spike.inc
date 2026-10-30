@@ -29,27 +29,8 @@ s_t1:   db "CHECK  BET  FOLD",0
     org 0C00h
     include "screen.inc"
 
-; ===========================================================================
-    org 0D00h
-    include "table.inc"
-
-; ===========================================================================
-    org 0E40h
-
-boot:
-    call vdc_reset
-    call scr_table
-    clr a
-    mov t,a
-    strt cnt
-    en tcnti
-    en i
-    mov r4,#L_TOP
-    mov a,#s_t0&0FFh
-    call say
-    mov r4,#L_BOT
-    mov a,#s_t1&0FFh
-    call say
+; spk_load: the rows from spk_rows. Clobbers A, r0-r7.
+spk_load:
     clr a                       ; the rows
 spk_row:
     mov r0,#ROWN
@@ -79,14 +60,11 @@ spk_cp:
     movx a,@r0
     inc a
     xrl a,#NROWS
-    jz spk_grid
+    jz spk_x
     xrl a,#NROWS
     jmp spk_row
-spk_grid:
-    call grid_flush
-spk_l:
-    call frame_wait
-    jmp spk_l
+spk_x:
+    ret
 
     if CARDS+2*NCARDS<>ROWNAME
     error "spike: CARDS, ROWNAME and ROWNC have to be in a row"
@@ -104,5 +82,37 @@ spk_rows:                       ; cards, name, colour
     db "??KCKDKSQH", "BO", C_DGREY
     db "ASKSQSJSTS", "YO", C_CYAN
     db "ASKSQSJSTS", "U ", C_CYAN
+
+    if $ > 0D00h
+    error "page $C has run out"
+    endif
+
+; ===========================================================================
+    org 0D00h
+    include "table.inc"
+
+; ===========================================================================
+    org 0E60h
+
+boot:
+    call vdc_reset
+    call scr_table
+    clr a
+    mov t,a
+    strt cnt
+    en tcnti
+    en i
+    mov r4,#L_TOP
+    mov a,#s_t0&0FFh
+    call say
+    mov r4,#L_BOT
+    mov a,#s_t1&0FFh
+    call say
+    call spk_load
+spk_grid:
+    call grid_flush
+spk_l:
+    call frame_wait
+    jmp spk_l
 
     PAGE_TAIL

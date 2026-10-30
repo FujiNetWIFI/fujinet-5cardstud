@@ -1,0 +1,11 @@
+# twohuman.scen -- an AUTOPLAY build at The Basement against test/player.py
+# (PLAYER="--table basement ..."): two humans, no bots.
+wait 360
+press down
+press down
+press down
+press down
+wait 10
+snap basement
+press fire
+wait 5400

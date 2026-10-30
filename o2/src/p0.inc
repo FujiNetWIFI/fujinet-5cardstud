@@ -345,18 +345,11 @@ akn_bad:
 ; boot: the top level. Every farcall into the network page is made here.
 boot:
     call vdc_reset
-    call scr_text
     call ints_on
-    mov r4,#2
-    mov a,#s_title&0FFh
-    call say_row
-    mov r4,#4
-    mov a,#s_fuji&0FFh
-    call say_row
-    mov r4,#L_TOP
-    mov a,#s_top&0FFh
-    call say
-    mov r7,#120                 ; the title, two seconds
+    mov r7,#PG_STATE            ; the title: cards on the table
+    mov a,#E_TITLE
+    FCALL farcall
+    mov r7,#150                 ; the title, two and a half seconds
 bt_ttl:
     call frame_wait
     djnz r7,bt_ttl
@@ -483,9 +476,6 @@ nc_ok:
     org 0C00h
     include "text.inc"
 
-s_top:    db "     FUJINET",0
-s_title:  db "5 CARD STUD",0
-s_fuji:   db "ODYSSEY  2",0
 s_nocart: db "NO FUJINET CART",0
 s_tables: db "CHOOSE A TABLE",0
 s_load:   db "  LOADING...",0

@@ -42,7 +42,12 @@ if ! grep -aq "http://localhost:$CS_PORT/" "$IMAGE"; then
     exit 1
 fi
 
+# (a rig just ended may still be letting go of them: wait a few seconds)
 for port in "$CS_PORT" "$BOIP" "$((BOIP - 10000))"; do
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        ss -ltn | grep -q ":$port " || break
+        sleep 0.5
+    done
     if ss -ltn | grep -q ":$port "; then echo "rig: port $port is taken" >&2; exit 1; fi
 done
 

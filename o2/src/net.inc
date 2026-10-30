@@ -339,7 +339,11 @@ txx_x:
     ret
 
 u_n:      db "N:",0
+    if DEVTABLES                ; (tests: the server's hidden tables, dev1-7)
+u_tabls:  db "tables?dev=1&bin=1",0
+    else
 u_tabls:  db "tables?bin=1",0
+    endif
 u_table:  db "?table=",0
 u_player: db "&player=",0
 u_bin:    db "&bin=1",0

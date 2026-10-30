@@ -63,14 +63,15 @@ hs_t1:
     mov r4,#L_BOT
     jmp hl_say
 
-; Each context: T0, rows 0-7 (0: none), T1.
+; Each context: T0, rows 0-7 (0: none; row 0 is never used, it would
+; touch T0), T1.
 helptab:
     db h_t0&0FFh                                        ; HC_TABLES
-    db h_stick&0FFh, h_tpick&0FFh, 0, h_btn&0FFh, h_sit&0FFh, 0, 0, 0
+    db 0, h_stick&0FFh, h_tpick&0FFh, 0, h_btn&0FFh, h_sit&0FFh, 0, 0
     db h_back&0FFh
     db h_t1&0FFh                                        ; HC_TABLE
-    db h_go&0FFh, h_lr&0FFh, h_btnp&0FFh, h_keys&0FFh, h_keys2&0FFh
-    db h_keys3&0FFh, h_ud&0FFh, h_seat&0FFh
+    db 0, h_lr&0FFh, h_amove&0FFh, h_btnp&0FFh, h_f&0FFh, h_c&0FFh
+    db h_b&0FFh, h_r&0FFh
     db h_leave&0FFh
 
     if $ > 900h
@@ -145,20 +146,19 @@ hll_x:
 
 h_t0:    db "HELP: TABLES",0
 h_stick: db "STICK U/D",0
-h_tpick: db " PICK ONE",0
+h_tpick: db " A TABLE",0
 h_btn:   db "BUTTON",0
 h_sit:   db " SIT DOWN",0
 h_back:  db "ANY KEY: BACK",0
 h_t1:    db "HELP: THE TABLE",0
-h_go:    db "YOUR MOVE:",0
-h_lr:    db " STICK L/R",0
-h_btnp:  db " BUTTON",0
-h_keys:  db "OR F C B R",0
-h_keys2: db " FOLD CHECK",0
-h_keys3: db " BET RAISE",0
-h_ud:    db "STICK U/D",0
-h_seat:  db " THE SEATS",0
-h_leave: db "L: LEAVE TABLE",0
+h_lr:    db "STICK L/R",0
+h_amove: db " A MOVE",0
+h_btnp:  db "BUTTON PLAY",0
+h_f:     db "F FOLD",0
+h_c:     db "C CALL/CHK",0
+h_b:     db "B BET",0
+h_r:     db "R RAISE",0
+h_leave: db "L LEAVE U/D SEAT",0
 
     if $ > 0F00h
     error "page $E has run out"
@@ -170,7 +170,7 @@ h_leave: db "L: LEAVE TABLE",0
 ; name_entry: SCNAME from the keyboard: letters, digits and spaces (not
 ; first), at most 8; CLR rubs out, ENT ends. Clobbers A, r0-r7.
 name_entry:
-    call scr_lines
+    call scr_text
     mov r4,#L_TOP
     mov a,#s_yname&0FFh
     call say

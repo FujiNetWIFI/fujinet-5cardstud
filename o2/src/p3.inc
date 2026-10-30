@@ -10,9 +10,11 @@
 ; server puts us first).
 
     PAGE_HEAD
-    db e_state&0FFh
+    db e_state&0FFh, e_title&0FFh
 e_state:
     jmp on_state
+e_title:
+    jmp title
 
 on_state:
     call hdr_copy
@@ -204,6 +206,9 @@ mc_x:
     org 0A00h
     include "text.inc"
 
+s_title: db "  5 CARD STUD",0
+s_fuji:  db "FUJINET ODYSSEY2",0
+
 
 ; ===========================================================================
     org 0B00h
@@ -231,12 +236,10 @@ seat_base:
     org 0C00h
     include "table.inc"
 
-; rows_draw: every row whose seat has changed since it was drawn, then the
-; grid if any did. Clobbers A, r0-r7.
+; rows_draw: every row whose seat has changed since it was drawn.
+; Clobbers A, r0-r7.
 rows_draw:
     clr a
-    mov r0,#TMP1                ; none changed yet
-    movx @r0,a
 rd_l:
     mov r0,#ROWN
     movx @r0,a
@@ -251,10 +254,10 @@ rd_l:
     jz rd_n
     mov a,r4
     movx @r0,a
-    mov r0,#TMP1
-    mov a,#1
-    movx @r0,a
-    call row_put
+    call grid_add               ; its new cards' faces first, then the
+    call grid_flush             ; characters on them, then the faces of
+    call row_put                ; any gone: neither order ever shows
+    call grid_flush             ; characters on bare felt
 rd_n:
     mov r0,#ROWN
     movx a,@r0
@@ -265,12 +268,54 @@ rd_n:
     mov a,r6
     jmp rd_l
 rd_g:
-    mov r0,#TMP1
-    movx a,@r0
-    jz rd_x
-    call grid_flush
-rd_x:
     ret
+
+; title: the boot's title, on the table: a royal flush in our hand, a hand
+; face down on the felt, the name above and below. Clobbers A, r0-r7.
+title:
+    call scr_table
+    mov r7,#tt_flush&0FFh       ; (row, 10 card bytes) x 3
+tt_l:
+    mov a,r7
+    movp a,@a
+    inc a
+    jz tt_lines
+    dec a
+    mov r0,#ROWN
+    movx @r0,a
+    inc r7
+    mov r0,#CARDS
+    mov r6,#2*NCARDS
+tt_c:
+    mov a,r7
+    movp a,@a
+    movx @r0,a
+    inc r0
+    inc r7
+    djnz r6,tt_c
+    mov a,#' '                  ; no name
+    movx @r0,a
+    mov a,r7
+    mov r0,#TMP2
+    movx @r0,a
+    call row_put
+    mov r0,#TMP2
+    movx a,@r0
+    mov r7,a
+    jmp tt_l
+tt_lines:
+    call grid_flush
+    mov r4,#L_TOP
+    mov a,#s_title&0FFh
+    call say
+    mov r4,#L_BOT
+    mov a,#s_fuji&0FFh
+    jmp say
+tt_flush:
+    db 2, "??????????"
+    db 6, "ahkhqhjhth"
+    db 7, "ahkhqhjhth"
+    db 0FFh
 
     if $ > 0E00h
     error "page $D has run out"

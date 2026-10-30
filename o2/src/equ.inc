@@ -230,6 +230,7 @@ PG_MAIN  equ 2
 PG_STATE equ 3                  ; the table: a state has come ...
 PG_TICK  equ 4                  ; ... and every frame
 E_STATE  equ 0
+E_TITLE  equ 1                  ; page 3's: the boot's title
 E_TICK   equ 0
 PG_HELP  equ 5
 PG_STATE2 equ 6                 ; ... and the rest of it
