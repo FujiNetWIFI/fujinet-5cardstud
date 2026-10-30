@@ -397,8 +397,8 @@ km_yes:
 
 ; ===========================================================================
     org 0D00h
-; spot_tick: up and down move the spotlight over the seats, and a state is
-; asked for at once to draw it. Clobbers A, r0-r7.
+; spot_tick: up and down move the spotlight over the seats: its marker at
+; once, and a state asked for to describe it in T1. Clobbers A, r0-r7.
 spot_tick:
     mov r0,#JOYEV
     movx a,@r0
@@ -448,6 +448,7 @@ sp_rs:
     inc r0
     djnz r1,sp_rs
 sp_go:
+    call spot_mark
     clr a
     mov r0,#POLLW
     movx @r0,a
@@ -477,6 +478,8 @@ pt_go:
     movx @r0,a
 pt_x:
     ret
+
+    include "sprites.inc"
 
     if $ > 0E00h
     error "page $D has run out"

@@ -21,8 +21,8 @@ K   set K+1
     endm
 
 ; scr_table: the table screen -- every row empty, T0 and T1 blank, the
-; sprites hidden. Rows first, then the band list: a frame between them draws
-; the old screen. Clobbers A, r0-r7.
+; sprites set up and hidden. Rows first, then the band list: a frame
+; between them draws the old screen. Clobbers A, r0-r7.
 scr_table:
     mov r0,#CARDS               ; no cards ...
     mov r2,#2*NCARDS
@@ -50,7 +50,7 @@ stb_r:
 stb_b:
     call grid_flush
     call bands_table            ; the colour and the band list
-    call spr_hide
+    call spr_table
     mov r1,#MODE
     mov a,#MODE_SETUP
     mov @r1,a

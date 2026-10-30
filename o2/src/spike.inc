@@ -16,18 +16,6 @@ e_boot:
 ; ===========================================================================
     org 0A00h
     include "input.inc"
-    include "vdcreset.inc"
-
-; ===========================================================================
-    org 0B00h
-    include "text.inc"
-
-s_t0:   db "POT 150 R4  :12",0
-s_t1:   db "CHECK  BET  FOLD",0
-
-; ===========================================================================
-    org 0C00h
-    include "screen.inc"
 
 ; spk_load: the rows from spk_rows. Clobbers A, r0-r7.
 spk_load:
@@ -38,8 +26,7 @@ spk_row:
     mov r7,a                    ; its 13 bytes: cards, name, colour
     rl a
     rl a
-    add a,r7
-    mov r6,a                    ; 5n
+    add a,r7                    ; 5n
     rl a                        ; 10n
     add a,r7
     add a,r7
@@ -83,6 +70,22 @@ spk_rows:                       ; cards, name, colour
     db "ASKSQSJSTS", "YO", C_CYAN
     db "ASKSQSJSTS", "U ", C_CYAN
 
+    if $ > 0B00h
+    error "page $A has run out"
+    endif
+
+; ===========================================================================
+    org 0B00h
+    include "text.inc"
+    include "vdcreset.inc"
+
+s_t0:   db "POT 150 R4  :12",0
+s_t1:   db "CHECK  BET  FOLD",0
+
+; ===========================================================================
+    org 0C00h
+    include "screen.inc"
+
     if $ > 0D00h
     error "page $C has run out"
     endif
@@ -109,10 +112,51 @@ boot:
     mov a,#s_t1&0FFh
     call say
     call spk_load
+    call spk_spr
 spk_grid:
     call grid_flush
 spk_l:
     call frame_wait
     jmp spk_l
+
+; spk_spr: every sprite up: a chip on rows 0-6, the marker on row 4, both
+; stacks full. Clobbers A, r0-r2, r4, r6.
+spk_spr:
+    mov r4,#(ROWS+ROW_SPR)&0FFh
+    mov r6,#Y_ROW0+CHIPDY
+spk_c:
+    mov r2,#ROWS>>8
+    mov a,r4
+    call poke_at
+    mov a,r6
+    call poke_b
+    mov a,r4
+    add a,#ROW_TAB
+    mov r4,a
+    mov a,r6
+    add a,#ROW_PITCH
+    mov r6,a
+    xrl a,#Y_ROW0+CHIPDY+7*ROW_PITCH
+    jnz spk_c
+    mov r2,#SPRTAB>>8
+    mov a,#SPRTAB&0FFh
+    call poke_at
+    mov a,#Y_ROW0+4*ROW_PITCH+MARKDY
+    call poke_b
+    mov a,#P1_VDC
+    outl p1,a
+    mov r0,#vdc_spr2_shape
+    mov r2,#2*STACK_N
+spk_s:
+    clr a
+    movx @r0,a
+    inc r0
+    mov a,#7Eh
+    movx @r0,a
+    inc r0
+    djnz r2,spk_s
+    mov a,#P1_MAIN
+    outl p1,a
+    ret
 
     PAGE_TAIL

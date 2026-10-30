@@ -116,7 +116,8 @@ CARDX   equ 0                   ; a rank's X in its cell (the suit is +8)
     endif
 NCARDS  equ 5
 NCOLS   equ NAMEW+2*NCARDS
-ROW_TAB equ 2*NCOLS             ; a row: NCOLS x (pointer, control)
+ROW_SPR equ 2*NCOLS             ; a row: NCOLS x (pointer, control), then
+ROW_TAB equ ROW_SPR+1           ; sprite 1's Y: its chip (SPR_OFF: none)
 NROWS   equ 8
 CARD_COL0 equ 1                 ; grid column of card 0; then every other
     ifndef Y_ROW0
@@ -147,6 +148,18 @@ SEPBF   equ 1
 GRIDNOP equ 0                   ; h_grid: nops to put its write in the blank
     endif
 X_ROWTXT equ 44                 ; a text screen's rows: 11 characters, centred
+
+; The table's sprites (screen.inc spr_table), 8 x 8 at a character's scale.
+; One shows only while the foreground is on: inside a row's 14 lines, or T0's.
+SPR_OFF equ 0F8h                ; a sprite's Y below the screen
+MARKX   equ 0                   ; 0: the spotlight's marker, left of the name
+MARKDY  equ 2                   ; ... its Y in its row
+CHIPX   equ NAMEX+8             ; 1: a bet's chip, between the name and cards
+CHIPDY  equ 2                   ; (each row band writes its Y: ROW_SPR)
+STACKY  equ Y_T0-2              ; 2, 3: the stacks in T0, the bottom chip on
+POTX    equ X_TEXT-8            ; its last line: the pot, left of "POT" ...
+OURX    equ X_TEXT+8*10         ; ... our purse, left of its "$"
+STACK_N equ 4                   ; a stack's chips at most
     ifndef PADN
 PADN    equ 0                   ; spike: pad a row band by 2+2n cycles
     endif

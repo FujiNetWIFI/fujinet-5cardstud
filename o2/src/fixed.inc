@@ -7,7 +7,8 @@
 ; table an interrupt reads with MOVP sits in the page of the code that reads
 ; it. The tables are cartridge RAM: the main program writes them through the
 ; mailbox's POKE register (disp.inc) and never touches the VDC's object
-; registers itself (the sprites' shapes aside).
+; registers itself (the sprites' shapes aside). Sprites 0, 2 and 3 stay put
+; all frame; sprite 1 moves down a row with each row's band.
 ;
 ; Every screen is the same: text line T0 at the top (the four quads, written
 ; in the vblank with the sprites), eight rows of eleven singles, and T1 at
@@ -127,8 +128,9 @@ farcall:
 ; of cards. Each is placed after one register of one single (SEPA = single,
 ; SEPAF = 0 its Y, 1 its pointer, 2 its control), so that it lands in the
 ; horizontal blank: mid-line, the line it splits jitters by an interrupt's
-; latency. VDC selected, foreground off. NCOLS x 15 cycles, and 14 for the
-; two control writes. Clobbers A, r0, r1.
+; latency. Then sprite 1's Y (ROW_SPR): the row's chip, one sprite down
+; every row. VDC selected, foreground off. NCOLS x 15 cycles, 14 for the
+; two control writes, 5 for the sprite. Clobbers A, r0, r1.
 SEPW    macro k,f,nxt
     if (k=SEPA)&&(f=SEPAF)
     mov r0,#vdc_control
@@ -165,6 +167,9 @@ K   set 0
     SEPW K,2,4
 K   set K+1
     endm
+    mov r0,#vdc_spr1_ctrl
+    mov a,@r1
+    movx @r0,a                  ; sprite 1's Y
     ret
 
 ; h_top_b: row 0 (staged by band_out), the grid's cells, row 1 staged.

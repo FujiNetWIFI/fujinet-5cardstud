@@ -64,6 +64,7 @@ NAMEN   equ 056h                ; the name typed so far
 T1KEY   equ SEL                 ; the move T1's menu shows (0FFh: draw it)
 RNEXT   equ NTBL                ; lastResult's next page in T1
 LPOT    equ NAMEN               ; the pot's low byte at the last state
+ROWSNEW equ TMP1                ; a row redrawn this state (page 3, for 6)
 ; the table: what a tick needs, taken at state time (the reply window is
 ; repainted once the next request is under way)
 NSEAT   equ 057h                ; playerCount

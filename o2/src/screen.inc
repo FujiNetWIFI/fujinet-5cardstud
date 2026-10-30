@@ -2,21 +2,77 @@
 ; the text screen (table.inc has the table's). One 256-byte page: the
 ; template with the code that copies it.
 
-; spr_hide: the four sprites below the screen. Clobbers A, r0-r2, r6.
+; spr_hide: the four sprites below the screen, and every row's chip.
+; Clobbers A, r0-r2, r4, r6.
 spr_hide:
     mov r2,#SPRTAB>>8
     mov a,#SPRTAB&0FFh
     call poke_at
     mov r6,#4
 sh_l:
-    mov a,#0F8h
+    mov a,#SPR_OFF
     call poke_b
     clr a
     call poke_b
     clr a
     call poke_b
     djnz r6,sh_l
+    mov r4,#(ROWS+ROW_SPR)&0FFh
+sh_r:
+    mov r2,#ROWS>>8
+    mov a,r4
+    call poke_at
+    mov a,#SPR_OFF
+    call poke_b
+    mov a,r4
+    add a,#ROW_TAB
+    mov r4,a
+    xrl a,#(ROWS+ROW_SPR+NROWS*ROW_TAB)&0FFh
+    jnz sh_r
     ret
+
+    ifndef TEXTSCR
+; spr_table: the table's sprites, hidden: the spotlight's marker and a bet's
+; chip, their shapes and places (spot_mark and the rows give their Ys), and
+; T0's two stacks, empty (t0_draw fills them). Clobbers A, r0-r2, r4, r6.
+spr_table:
+    call spr_hide
+    mov r2,#SPRTAB>>8
+    mov a,#SPRTAB&0FFh
+    call poke_at
+    mov r4,#spr_t&0FFh
+    mov r6,#12
+    call copy_rom
+    mov a,#P1_VDC
+    outl p1,a
+    mov r0,#vdc_spr0_shape
+    mov r1,#spr_s&0FFh
+    mov r2,#16
+spt_s:
+    mov a,r1
+    movp a,@a
+    movx @r0,a
+    inc r0
+    inc r1
+    djnz r2,spt_s
+    clr a
+    mov r2,#16
+spt_z:
+    movx @r0,a
+    inc r0
+    djnz r2,spt_z
+    mov a,#P1_MAIN
+    outl p1,a
+    ret
+spr_t:                          ; 4 x (Y, X, attribute: colour << 3)
+    db SPR_OFF, MARKX, C_WHITE<<3   ; the spotlight's marker
+    db SPR_OFF, CHIPX, C_RED<<3     ; a bet's chip, down the rows
+    db STACKY, POTX, C_RED<<3       ; the pot's stack
+    db STACKY, OURX, C_WHITE<<3     ; our purse's
+spr_s:                          ; their shapes, bit 0 leftmost
+    db 03h, 0Fh, 3Fh, 0Fh, 03h, 0, 0, 0     ; a pointer
+    db 3Ch, 66h, 5Ah, 66h, 3Ch, 0, 0, 0     ; a chip, face on
+    endif
 
 ; copy_rom: r6 bytes from offset r4 of this page to the POKE pointer.
 copy_rom:
