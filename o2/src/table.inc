@@ -5,8 +5,8 @@
 ; cards the grid's cells (GRIDTAB, page $7), both written through POKE.
 ; One 256-byte page: these routines read its tables with MOVP. Main program.
 
-; The tables first: row_put and card_codes read them with MOVP, and the
-; routines run past the page.
+; The tables first: row_put reads them with MOVP, and the routines run
+; past the page.
 rowb:                           ; each row's bias, -(Y/2)
 K   set 0
     rept NROWS
@@ -19,8 +19,6 @@ K   set 0
     db (ROWS&0FFh)+K*ROW_TAB
 K   set K+1
     endm
-rowbit:
-    db 1, 2, 4, 8, 10h, 20h, 40h, 80h
 
 ; scr_table: the table screen -- every row empty, T0 and T1 blank, the
 ; sprites hidden. Rows first, then the band list: a frame between them draws
@@ -178,7 +176,8 @@ cc_put:
 cc_none:
     mov r4,#' '
     mov r2,#' '
-    mov r1,#0
+    mov r3,#C_DGREY             ; (a blank's colour still goes in its
+    mov r1,#0                   ; control byte, beside pointer bit 8)
 cc_set:
     mov r0,#SCR0
     mov a,r4
@@ -192,9 +191,13 @@ cc_set:
     mov a,r6                    ; GRIDS[card]: bit (row)
     add a,#GRIDS
     mov r0,a
-    mov a,r7
-    add a,#rowbit&0FFh
-    movp a,@a
+    mov a,r7                    ; its bit: 1 << row
+    mov r2,a
+    inc r2
+    mov a,#80h
+cc_bit:
+    rl a
+    djnz r2,cc_bit
     mov r2,a
     cpl a
     mov r3,a

@@ -6,8 +6,9 @@ in the page of the code that reads it -- and nothing says so when it does not:
 the code reads whatever the same offset of its own page holds. Every MOVP table
 in this program is addressed as `#label&0FFh`, so each such reference from code
 at $800 or above to a label at $800 or above has to be to a label that starts,
-and whose bytes end, in the page that reads it: where the next MOVP or JMPP
-runs, or the page of the routine called first -- an offset handed to `say` is
+and whose bytes end, in the page that reads it: the page the next MOVP or JMPP
+runs in (not the reference's: the two can straddle a page boundary), or the
+page of the routine called first -- an offset handed to `say` is
 read in say's page. (Below $800 the references
 are deliberately to other pages' tables -- a writer in page $5 handed T0 by page
 $7 -- and fixed.inc asserts its tables stay in their pages.)
@@ -64,7 +65,11 @@ def check(path):
         reader = addr >> 8
         for faddr, ftarget in flow:
             if addr < faddr <= addr + 12:
-                if ftarget is not None and labels.get(ftarget, 0) >= 0x800:
+                if ftarget is None:
+                    # the MOVP's own page: an `add` on one page's last
+                    # bytes and the MOVP on the next's first reads the next
+                    reader = faddr >> 8
+                elif labels.get(ftarget, 0) >= 0x800:
                     reader = labels[ftarget] >> 8
                 break
         if start >> 8 != reader or end >> 8 != reader:

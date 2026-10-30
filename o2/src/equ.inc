@@ -191,3 +191,82 @@ K_NO    equ 2Dh
 K_CLR   equ 2Eh
 K_ENT   equ 2Fh
 K_NONE  equ 0FFh
+
+; ---- sounds (snd.inc): beep ids; from SND_SOFT on they never cut another ----
+SND_SELECT equ 0
+SND_TURN   equ 1                ; our turn
+SND_CHIPS  equ 2                ; a bet, a call, a raise
+SND_DEAL   equ 3                ; a street dealt
+SND_WIN    equ 4                ; a hand we won
+SND_LOSE   equ 5
+SND_ERROR  equ 6
+SND_SOFT   equ 7
+SND_TICK   equ 7                ; our clock, its last seconds
+SND_MOVE   equ 8                ; a click
+
+; ---- requests (net.inc): ACT_*, and what a request came to (NETHAVE) ----
+ACT_STATE  equ 1
+ACT_MOVE   equ 2                ; MOVEC: the move's two letters
+ACT_LEAVE  equ 3
+ACT_TABLS  equ 4                ; tables?bin=1
+
+NS_IDLE equ 0
+NS_CLOS equ 1
+NS_OPEN equ 2
+NS_STAT equ 3
+NS_READ equ 4
+
+NH_FAIL   equ 0
+NH_STATE  equ 1                 ; a whole state is in the reply
+NH_TABLES equ 2                 ; the table list
+
+; ---- pages, and their farcall entries ----
+PG_BOOT  equ 0
+E_TABLES equ 1                  ; page 0's: back to the table list
+PG_NET   equ 1
+E_NBEGIN equ 0
+E_NSTEP  equ 1
+PG_MAIN  equ 2
+PG_STATE equ 3                  ; the table: a state has come ...
+PG_TICK  equ 4                  ; ... and every frame
+E_STATE  equ 0
+E_TICK   equ 0
+PG_HELP  equ 5
+PG_STATE2 equ 6                 ; ... and the rest of it
+E_HELP   equ 0
+E_NAME   equ 1                  ; page 5's: the name, from the keyboard
+HC_TABLES equ 0                 ; the help's contexts
+HC_TABLE  equ 1
+
+; ---- the server's binary state (server/util.go serializeResults, ?bin=1):
+; strings lowercased and NUL-padded to max+1, u16 little-endian ----
+GAME_LASTRESULT equ 0           ; 81
+GAME_ROUND      equ 81          ; 0 waiting, 1-4 the streets, 5 showdown
+GAME_POT        equ 82          ; u16
+GAME_ACTIVE     equ 84          ; the seat to move, us = 0; 0FFh nobody
+GAME_MOVETIME   equ 85          ; its seconds left
+GAME_VIEWING    equ 86
+GAME_NMOVES     equ 87          ; valid moves (5 slots, always)
+GAME_MOVES      equ 88          ; 5 x MOVE_SIZE
+GAME_COUNT      equ 153         ; playerCount
+GAME_SEATS      equ 154         ; SEAT_SIZE each, us first
+MOVE_SIZE       equ 13          ; code (3), name (10)
+MV_NAME         equ 3
+SEAT_SIZE       equ 33
+SE_NAME         equ 0           ; 9
+SE_STATUS       equ 9           ; PS_*
+SE_BET          equ 10          ; u16
+SE_MOVE         equ 12          ; 8: its last action
+SE_PURSE        equ 20          ; u16
+SE_HAND         equ 22          ; 11: 5 x rank, suit; "??" face down
+TB_SIZE         equ 36          ; a table: id (9), name (21), players (6)
+TB_NAME         equ 9
+TB_PLAYERS      equ 30
+PS_WAITING equ 0
+PS_PLAYING equ 1
+PS_FOLDED  equ 2
+PS_LEFT    equ 3
+ROUND_WAIT equ 0
+ROUND_SHOW equ 5
+NMOVES     equ 5
+MAXSEATS   equ 8

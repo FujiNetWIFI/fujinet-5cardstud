@@ -30,7 +30,10 @@ run: all
 rig:
 	ENDPOINT='$(RIG_ENDPOINT)' ./build.sh
 
+test: rig
+	test/rig.sh test/scen/boot.scen build/run/boot 60
+
 clean:
 	rm -rf build
 
-.PHONY: all spike shot run rig clean
+.PHONY: all spike shot run rig test clean
