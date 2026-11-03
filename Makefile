@@ -47,7 +47,11 @@ LDFLAGS_EXTRA_MSXROM += --generic-console -pragma-redirect:CRT_FONT=_font -creat
 CFLAGS_EXTRA_ADAM = -D__ADAM__
 LDFLAGS_EXTRA_ADAM += --generic-console -pragma-redirect:CRT_FONT=_font
 
-# ColecoVision cartridge. z88dk puts -D__COLECO__ in the target-wide OPTIONS
+# ColecoVision cartridge, with the coleco target now in fujinet-lib itself
+# (FujiNetWIFI/fujinet-lib#281, branch add-coleco) -- no longer in
+# fujinet-lib-experimental:
+#   make FUJINET_LIB=<that lib's checkout> PLATFORMS=coleco coleco
+# z88dk puts -D__COLECO__ in the target-wide OPTIONS
 # line, so the Adam subtype defines it too -- __COLECO__ alone does not mean
 # ColecoVision. src/coleco is therefore guarded by BUILD_COLECO, the same way
 # src/msx is, and src/platform-specific/input.h can keep including every
