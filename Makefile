@@ -1,6 +1,6 @@
 PRODUCT = fcs
 #plus4 also works, but needs fujinet-lib
-PLATFORMS = apple2 c64 coco msdos adam msxrom
+PLATFORMS = apple2 c64 coco msdos adam msxrom model2
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
@@ -67,6 +67,9 @@ LDFLAGS_EXTRA_COLECO += --generic-console -pragma-redirect:CRT_FONT=_font -m \
   -pragma-define:CLIB_FOPEN_MAX=0
 
 LDFLAGS_EXTRA_APPLE2 = -C src/apple2/apple2-hgr.cfg
+
+# CCP refuses a .COM that reaches past the TPA; the startup zeroes BSS anyway
+LDFLAGS_EXTRA_MODEL2 = -pragma-define:CRT_TRIM_BSS=1
 
 # NES cartridge. src/nes is guarded
 # by BUILD_NES the way src/coleco is. The linker config is the lib's FujiNet
