@@ -4,6 +4,8 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-uint8_t getResponse(char *url, unsigned char *buffer, uint16_t max_length);
+#include <fujinet-int.h>
+
+uint8_t getResponse(const char *devicespec, void *buf, uint16_t len);
 
 #endif /* NETWORK_H */

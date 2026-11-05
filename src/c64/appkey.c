@@ -17,22 +17,22 @@
 
 #include <fujinet-fuji.h>
 
-void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char* data)
+void read_appkey(uint16_t creator_id, uint8_t app_id, uint8_t key_id, uint8_t *data)
 {
   uint16_t read = 0;
 
   fuji_set_appkey_details(creator_id, app_id, DEFAULT);
-  if (!fuji_read_appkey(key_id, &read, (uint8_t *)data))
+  if (!fuji_read_appkey(key_id, &read, data))
     read = 0;
 
   // Add string terminator at end
   data[read] = 0;
 }
 
-void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, const char *data)
+void write_appkey(uint16_t creator_id, uint8_t app_id, uint8_t key_id, uint8_t *data)
 {
   fuji_set_appkey_details(creator_id, app_id, DEFAULT);
-  fuji_write_appkey(key_id, strlen(data), (uint8_t *)data);
+  fuji_write_appkey(key_id, strlen((char *) data), data);
 }
 
 #else
@@ -87,7 +87,7 @@ unsigned char open_appkey(unsigned char open_mode, unsigned int creator_id, unsi
   return appkey_error;
 }
 
-void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char* data)
+void read_appkey(uint16_t creator_id, uint8_t app_id, uint8_t key_id, uint8_t *data)
 {
   static unsigned char appkey_error;
   static int read;
@@ -115,7 +115,7 @@ void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char ke
   return;
 }
 
-void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, const char *data)
+void write_appkey(uint16_t creator_id, uint8_t app_id, uint8_t key_id, uint8_t *data)
 {
   static unsigned char appkey_error;
   static unsigned char len;
@@ -123,7 +123,7 @@ void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char k
   if (appkey_error = open_appkey(APPKEY_WRITE, creator_id, app_id, key_id))
     return;
 
-  len = strlen(data);
+  len = strlen((char *) data);
   if (len > MAX_APPKEY_LEN)
     len = MAX_APPKEY_LEN;
 
