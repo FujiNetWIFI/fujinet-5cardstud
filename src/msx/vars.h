@@ -39,7 +39,8 @@
 #define KEY_DOWN_ARROW_2    0xF4
 #define KEY_DOWN_ARROW_3    0x3D // =
 
-#define KEY_RETURN       0x0D
+// z88dk's console turns ENTER into a line feed
+#define KEY_RETURN       0x0A
 #define KEY_ESCAPE       0x1B
 #define KEY_ESCAPE_ALT   0x03
 #define KEY_SPACE        0x20
@@ -68,7 +69,7 @@ extern char playerDirMaster[];
 extern char playerBetXMaster[];
 extern char playerBetYMaster[];
 
-// Simple hard coded arrangment of players around the table based on player count.
+// Simple hard coded arrangement of players around the table based on player count.
 // These refer to index positions in the Master arrays above
 // Downside is new players will cause existing player positions to move.
 
