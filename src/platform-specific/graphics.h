@@ -10,7 +10,7 @@
 #define FULL_CARD 3
 
 #ifdef _CMOC_VERSION_
-#include "../coco/coco_bool.h"
+#include <fujinet-int.h>
 #else
 #include <stdint.h>
 #include <stdbool.h>

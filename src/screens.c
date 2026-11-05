@@ -1,5 +1,5 @@
 #ifdef _CMOC_VERSION_
-#include "coco/coco_bool.h"
+#include <fujinet-int.h>
 #include <cmoc.h>
 #include <coco.h>
 unsigned char kbhit(void);
@@ -274,7 +274,7 @@ void showWelcomeScreen() {
   pause(45);
 
 
-  // If first run, show the help screen
+  // On first run, record the help as seen without showing it
   if (prefs[PREF_HELP]!=2) {
     prefs[PREF_HELP]=2;
     savePrefs();
@@ -292,7 +292,7 @@ void tableActionJoinServer() {
   strcat(query, "&player=");
   strcat(query, playerName);
 
-  // Replace space with + for pshowWelcomeScreenlayer name
+  // Replace space with + for player name
   i=(unsigned char)strlen(query);
   while(--i)
     if (query[i]==' ')
@@ -314,7 +314,7 @@ void showTableSelectionScreen() {
     // SkipApiCall will be true if toggling color, to redraw
 
     if (!skipApiCall) {
-      // Show the status immediately before retrival
+      // Show the status immediately before retrieval
       centerStatusText("REFRESHING TABLE LIST..");
       drawBuffer();
     }
