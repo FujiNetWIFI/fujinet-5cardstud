@@ -22,14 +22,6 @@
 #define LOBBY_HOST "ec.tnfs.io"
 #define LOBBY_FILE "msx/lobby.rom"
 
-// FujiNet CONTROL register, top of the 0xBFFC IO window. 0x05 boots the user
-// ROM, 0x04 boots BASIC.
-#define FUJI_IO_CONTROL 0xBFFF
-#define FUJI_BOOT_USER_ROM 0x05
-
-// Scratch RAM for the bank-switch trampoline (see bootUserRom).
-#define TRAMPOLINE 0xC000
-
 static HostSlot host_slots[FUJI_HOST_SLOT_COUNT];
 static DeviceSlot device_slots[FUJI_DEVICE_SLOT_COUNT];
 
@@ -106,35 +98,6 @@ static void mountLobby(void)
   fuji_mount_disk_image(0, 1);
 }
 
-/**
- * @brief Bank in the user ROM and cold start into it.
- *
- * The write to CONTROL pulls our own ROM out from under the program counter,
- * so the three instructions that do it have to be executing from RAM. Stage
- * them at 0xC000 and call through, exactly as fujinet-config's system_boot()
- * does (src/msx/system.c) - spelled as a function pointer here because sccz80
- * does not take SDCC's __asm/__endasm.
- *
- *   LD HL,$BFFF
- *   LD (HL),$05
- *   JP 0
- */
-static void bootUserRom(void)
-{
-  unsigned char *code = (unsigned char *)TRAMPOLINE;
-
-  code[0] = 0x21;
-  code[1] = (unsigned char)(FUJI_IO_CONTROL & 0xFF);
-  code[2] = (unsigned char)(FUJI_IO_CONTROL >> 8);
-  code[3] = 0x36;
-  code[4] = FUJI_BOOT_USER_ROM;
-  code[5] = (unsigned char)0xC3;
-  code[6] = 0x00;
-  code[7] = 0x00;
-
-  ((void (*)(void))TRAMPOLINE)();
-}
-
 void quit(void)
 {
   drawStatusText("LOADING LOBBY...");
@@ -143,7 +106,7 @@ void quit(void)
   // Same handoff fujinet-config uses: stop the firmware from serving CONFIG
   // at boot, then reboot so the machine comes up on the mounted image.
   fuji_set_boot_config(0);
-  bootUserRom();
+  fuji_enable_user_rom();
 }
 
 #endif /* BUILD_MSX */

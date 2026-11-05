@@ -10,30 +10,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <fujinet-fuji.h>
-#include <fujinet-bus.h>
-#include <fujinet-commands.h>
 
 #include "../platform-specific/appkey.h"
-
-// fujinet-lib's MSX bus does not provide these two
-bool fuji_bus_appkey_read(void *string, uint16_t *length)
-{
-    uint8_t *s = (uint8_t *) string;
-    uint16_t n = 0;
-
-    memset(s, 0, MAX_APPKEY_LEN);
-    if (!FUJICALL_RV(FUJICMD_READ_APPKEY, s, MAX_APPKEY_LEN))
-        return false;
-    while (n < MAX_APPKEY_LEN && s[n])
-        n++;
-    *length = n;
-    return true;
-}
-
-bool fuji_bus_appkey_write(const void *string, uint16_t length)
-{
-    return FUJICALL_D(FUJICMD_WRITE_APPKEY, string, length);
-}
 
 void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char *data)
 {
