@@ -1,8 +1,6 @@
 PRODUCT = fcs
 #plus4 also works, but needs fujinet-lib
 PLATFORMS = apple2 c64 coco
-#MSX ROM, MSDOS, and Adam use fujinet-lib-experimental
-#Use make-exp <platform> to build them.
 #PLATFORMS = msxrom msdos adam
 
 # You can run 'make <platform>' to build for a specific platform,
@@ -48,8 +46,7 @@ CFLAGS_EXTRA_ADAM = -D__ADAM__
 LDFLAGS_EXTRA_ADAM += --generic-console -pragma-redirect:CRT_FONT=_font
 
 # ColecoVision cartridge, with the coleco target now in fujinet-lib itself
-# (FujiNetWIFI/fujinet-lib#281, branch add-coleco) -- no longer in
-# fujinet-lib-experimental:
+# (FujiNetWIFI/fujinet-lib#281, branch add-coleco):
 #   make FUJINET_LIB=<that lib's checkout> PLATFORMS=coleco coleco
 # z88dk puts -D__COLECO__ in the target-wide OPTIONS
 # line, so the Adam subtype defines it too -- __COLECO__ alone does not mean
@@ -69,31 +66,27 @@ LDFLAGS_EXTRA_COLECO += --generic-console -pragma-redirect:CRT_FONT=_font -m \
 
 LDFLAGS_EXTRA_APPLE2 = -C src/apple2/apple2-hgr.cfg
 
-# NES cartridge, with fujinet-lib-experimental's nes target. src/nes is guarded
+# NES cartridge. src/nes is guarded
 # by BUILD_NES the way src/coleco is. The linker config is the lib's FujiNet
 # layout with the CHR-ROM split so the game's own pattern table sits at $1000
 # beside the cc65 font the runtime insists on (see src/nes/nes.cfg).
 CFLAGS_EXTRA_NES = -DBUILD_NES
 NES_CFG = src/nes/nes.cfg
 
-# Sega Master System cartridge, with fujinet-lib-experimental's sms target.
+# Sega Master System cartridge.
 # src/sms is guarded by BUILD_SMS the way src/coleco is. -m leaves a map next
 # to the image; the client has to end below $7FD8 to stay a 32K image.
 CFLAGS_EXTRA_SMS = -DBUILD_SMS
 LDFLAGS_EXTRA_SMS += -m -pragma-define:CRT_ENABLE_STDIO=0 \
   -pragma-define:CLIB_FOPEN_MAX=0
 
-# Atari 7800 cartridge, with the atari7800 target on fujinet-lib-experimental's
-# add-atari7800 branch:
-#   make FUJINET_LIB=<that lib's checkout> PLATFORMS=atari7800 atari7800
+# Atari 7800 cartridge.
 # src/atari7800 is guarded by BUILD_ATARI7800 the way src/nes is. The screen is
 # the shared MARIA engine (src/atari7800/maria.s); r2r/atari7800 gets fcs.bin
 # for the cart and fcs.a78 for MAME.
 CFLAGS_EXTRA_ATARI7800 = -DBUILD_ATARI7800
 
-# Atari 5200 cartridge, with the atari5200 target on fujinet-lib-experimental's
-# add-atari5200 branch:
-#   make FUJINET_LIB=<that lib's checkout> PLATFORMS=atari5200 atari5200
+# Atari 5200 cartridge.
 # src/atari5200 is guarded by BUILD_ATARI5200 the way src/atari7800 is. The
 # screen is the 8-bit client's ANTIC one (src/atari5200/antic.s), whose two
 # screens and player/missile memory take the top 4K of the console's RAM.
@@ -138,7 +131,8 @@ build/charset_active.fnt: $(COCO_CHARSET_SRC) | build
 build:
 	mkdir -p $@
 
-build/%/src/coco/charset.o: build/charset_active.fnt
+EXTRA_S_DEPS_COCO = build/charset_active.fnt
+EXTRA_S_DEPS_DRAGON = build/charset_active.fnt
 
 include mekkogx/toplevel-rules.mk
 

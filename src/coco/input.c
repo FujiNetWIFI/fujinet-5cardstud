@@ -1,6 +1,6 @@
 #ifdef _CMOC_VERSION_
 #include <coco.h>
-#include "coco_bool.h"
+#include <fujinet-int.h>
 #include "joystick.h"
 
 
