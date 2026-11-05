@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <dos.h>
+#include <conio.h>
 #include "charset.h"
 
 #define VIDEO_RAM_ADDR ((unsigned char far *)0xB8000000UL)
@@ -168,7 +169,7 @@ void drawStatusTimer()
  * @brief is a card present? check for 0x55 (color 1)
  * @param x X coordinate (0-39)
  * @param y Y coordinate (0-24)
- * @return false if value is 0x55, otherwise true.
+ * @return the video byte there; 0x55 (color 1) means no card
  */
 uint8_t getPix(unsigned char x, unsigned char y)
 {
@@ -331,7 +332,7 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
             plot_tile(&card_edges[6],x+2,y+2);
             plot_tile(&card_edges[6],x+2,y+3);
 
-            // Draw top and bottom right corners if not supressed
+            // Draw top and bottom right corners if not suppressed
             // This is only suppressed for the 4 aces in the borders
             // since those areas are used for corners
             if (draw_corners) {
@@ -341,7 +342,7 @@ void drawCard(unsigned char x, unsigned char y, unsigned char partial, const cha
         }
         else if (prevPix== 0xEB)
         {
-            // Back of card ia there, update to draw with left border
+            // Back of card is there, update to draw with left border
             // This happens for the player cards on the right of the screen
             plot_tile(&card_edges[4],x+2,y);
             plot_tile(&card_bits[1],x+2,y+1);
