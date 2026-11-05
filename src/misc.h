@@ -81,6 +81,17 @@
 #define _Packed
 #endif
 
+#ifdef __TRS80M2__
+#define _Packed
+#endif
+
+// Screen text: all caps, or real text on platforms with lower case
+#ifdef MIXED_CASE
+#define TXT(caps, mixed) mixed
+#else
+#define TXT(caps, mixed) caps
+#endif
+
 typedef _Packed struct {
   char table    [9];
   char name     [21];
