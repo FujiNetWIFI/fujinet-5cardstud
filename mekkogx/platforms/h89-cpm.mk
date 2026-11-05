@@ -1,4 +1,4 @@
-EXECUTABLE = $(R2R_PD)/$(PRODUCT_BASE).com
+EXEC_SUFFIX = .com
 LIBRARY = $(R2R_PD)/$(PRODUCT_BASE).$(PLATFORM).lib
 
 MWD := $(realpath $(dir $(lastword $(MAKEFILE_LIST)))..)
@@ -6,7 +6,7 @@ include $(MWD)/common.mk
 include $(MWD)/toolchains/z88dk.mk
 
 MSX_FLAGS = +cpm -create-app
-CFLAGS += $(MSX_FLAGS)
+CFLAGS += $(MSX_FLAGS) -D__H89__
 LDFLAGS += $(MSX_FLAGS)
 ifneq ($(IS_LIBRARY),1)
   LDFLAGS += -create-app
