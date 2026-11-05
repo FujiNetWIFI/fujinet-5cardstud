@@ -1,11 +1,13 @@
 /**
- * @brief   Cbm App Key Functions
+ * @brief   App key functions
  * @author  Oscar Fowler, Thomas Cherryhomes, Eric Carr
  * @license gpl v. 3
  */
 
 #ifndef APPKEY_H
 #define APPKEY_H
+
+#include <fujinet-int.h>
 
 #define MAX_APPKEY_LEN 64
 
@@ -37,22 +39,10 @@ typedef union {
     } write;
 } appkeyblock;
 
-/**
- * @brief Read a key into appkey var appkey
- * @param creator_id Key creator ID: ($0000-$FFFF)
- * @param app_id The App ID ($00-$FF)
- * @param key_id The Key ID ($00-$FF)
- * @brief string output (64 chars max)
- */
-void read_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, char *data);
+// Reads the key into data as a C string, empty if it can't be read
+void read_appkey(uint16_t creator_id, uint8_t app_id, uint8_t key_id, uint8_t *data);
 
-/**
- * @brief write a key from appkey var appkey
- * @param creator_id Key creator ID: ($0000-$FFFF)
- * @param app_id The App ID ($00-$FF)
- * @param key_id The Key ID ($00-$FF)
- * @param Data string to write (64 chars max)
- */
-void write_appkey(unsigned int creator_id, unsigned char app_id, unsigned char key_id, const char *data);
+// Writes data, a C string of at most MAX_APPKEY_LEN characters
+void write_appkey(uint16_t creator_id, uint8_t app_id, uint8_t key_id, uint8_t *data);
 
 #endif /* APPKEY_H */

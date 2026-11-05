@@ -139,7 +139,7 @@ void showHelpScreen() {
 /// @brief Action called in Welcome Screen to check if a server name is stored in an app key
 void welcomeActionVerifyServerDetails() {
   // Read server endpoint into server and query
-  read_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, tempBuffer);
+  read_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, (uint8_t *) tempBuffer);
 
   i=(unsigned char)strlen(tempBuffer);
   if (i) {
@@ -242,13 +242,13 @@ void showPlayerNameScreen() {
 
   drawBuffer();
 
-  write_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, playerName);
+  write_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, (uint8_t *) playerName);
 }
 
 /// @brief Action called in Welcome Screen to verify player has a name
 void welcomeActionVerifyPlayerName() {
   // Read player's name from app key
-  read_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, tempBuffer);
+  read_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, (uint8_t *) tempBuffer);
 
   tempBuffer[12]=0;
   if (tempBuffer[0] != 0)
@@ -437,7 +437,7 @@ void showTableSelectionScreen() {
       strcat(tempBuffer, query);
 
       //  Update server app key in case of reboot
-      write_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, tempBuffer);
+      write_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, (uint8_t *) tempBuffer);
 
     }
   
@@ -567,7 +567,7 @@ void showInGameMenuScreen() {
     drawText(x-2,y+=2, "PAUSE: HOW TO PLAY");
     drawText(x-2,y+=2, "2: KEEP PLAYING");
 #elif defined(BUILD_ATARI5200)
-    // The font has no * or #: RESET is the labelled key that backs out.
+    // The font has no * or #: RESET is the labeled key that backs out.
     drawText(x,y,    "    5: QUIT TABLE");
     drawText(x,y+=2, "    2: HOW TO PLAY");
     drawText(x,y+=2, "    3: TABLE COLOR");
@@ -611,7 +611,7 @@ void showInGameMenuScreen() {
           progressAnim(12);
           
           //  Clear server app key in case of reboot
-          write_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, "");
+          write_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, (uint8_t *) "");
 
           // Clear query so a new table will be selected
           clearCommonInput();

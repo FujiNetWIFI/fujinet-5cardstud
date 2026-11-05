@@ -1,6 +1,4 @@
-/*
- * Include CC65 style Joystick defines for Adam - There is a probably a better way to do this.
- */
+// cc65-style joystick defines for the platforms without cc65's <joystick.h>
 
 //#ifdef __WATCOMC__
 //#define USE_PLATFORM_SPECIFIC_INPUT 1
@@ -151,7 +149,7 @@ void applyPrefs() {
 
 void loadPrefs() {
   
-  read_appkey(AK_CREATOR_ID, AK_APP_ID, AK_KEY_PREFS, tempBuffer);
+  read_appkey(AK_CREATOR_ID, AK_APP_ID, AK_KEY_PREFS, (uint8_t *) tempBuffer);
 
   if (strlen(tempBuffer)==0) {
     // Default all prefs to 1
@@ -166,6 +164,6 @@ void loadPrefs() {
 
 void savePrefs() {
   prefs[3] = 0; // Terminate prefs end as a string
-  write_appkey(AK_CREATOR_ID, AK_APP_ID, AK_KEY_PREFS, prefs);
+  write_appkey(AK_CREATOR_ID, AK_APP_ID, AK_KEY_PREFS, (uint8_t *) prefs);
 }
 
