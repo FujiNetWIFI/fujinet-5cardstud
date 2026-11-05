@@ -1,6 +1,6 @@
 PRODUCT = fcs
 #plus4 also works, but needs fujinet-lib
-PLATFORMS = apple2 c64 coco msdos adam
+PLATFORMS = apple2 c64 coco msdos adam msxrom
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
@@ -19,7 +19,7 @@ SRC_DIRS = src src/%PLATFORM%
 # - a URL to a git repo
 # - empty which will use whatever is the latest
 # - undefined, no fujinet-lib will be used
-FUJINET_LIB =
+FUJINET_LIB = https://github.com/FujiNetWIFI/fujinet-lib.git
 
 # Define extra dirs ("combos") that expand with a platform.
 # Format: platform+=combo1,combo2
@@ -37,7 +37,10 @@ CFLAGS_EXTRA_MSXROM = -DBUILD_MSX
 # Do not add -lmsxbios here: it displaces routines --generic-console relies on
 # and the SCREEN 2 display comes up garbled. src/msx/joyread.asm calls the two
 # BIOS entries it needs directly instead.
-LDFLAGS_EXTRA_MSXROM += --generic-console -pragma-redirect:CRT_FONT=_font -create-app -lm
+LDFLAGS_EXTRA_MSXROM += --generic-console -pragma-redirect:CRT_FONT=_font -create-app
+
+CFLAGS_EXTRA_MSX = -DBUILD_MSX
+LDFLAGS_EXTRA_MSX += --generic-console -pragma-redirect:CRT_FONT=_font
 
 # z88dk's +coleco -subtype=adam doesn't define an Adam-specific macro, so
 # supply the one all of src/adam is guarded by.

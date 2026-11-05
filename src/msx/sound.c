@@ -22,7 +22,8 @@ void waitvsync(void);
 void beep(int hz, int gate, int postGate)
 {
     psg_volume(1,10);
-    psg_tone(1,psgT(hz));
+    // psgT() would pull in floating point
+    psg_tone(1,(int)(111760L/hz));
     while (gate--)
         waitvsync();
     psg_volume(1,0);
