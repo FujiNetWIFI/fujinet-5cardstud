@@ -1,7 +1,6 @@
 PRODUCT = fcs
 #plus4 also works, but needs fujinet-lib
-PLATFORMS = apple2 c64 coco
-#PLATFORMS = msxrom msdos adam
+PLATFORMS = apple2 c64 coco msdos adam
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
