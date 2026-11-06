@@ -33,6 +33,8 @@ SNAME:	ENTER
 	XDC
 	PI UIFOOT
 
+	LI AKRDMOD
+	LR 1,A
 	PI AKOPEN
 	CI 0
 	BNZ SNTYPE
@@ -76,27 +78,34 @@ SNTYPE:	DCI VENTRY
 	LR 0,A
 	JMP GOTO
 
-; AKOPEN -- OPEN_APPKEY(creator, app, key, read mode).
+; AKOPEN -- OPEN_APPKEY(creator, app, key, mode r1). No parameters: the
+;   request is a SIX-BYTE PACKED STRUCT in the payload -- creator lo, creator
+;   hi, app, key, mode, reserved. AppKeyMixin::appkey_open() reads it with one
+;   transaction_get_length() and refuses anything but exactly six bytes, so
+;   sent as parameters it arrives as an empty payload and fails.
+;   Reached by PI; calls one level down.
 AKOPEN:	ENTER
+	LR A,1
+	LR 10,A			; the mode, past anything FNBEG touches
 	LI FD_FUJI
 	LR 0,A
 	LI FC_AKOPN
 	LR 1,A
-	LIS 4
-	LR 2,A
-	PI FNBEG
-	LI AKCREAT
-	LR 0,A
-	PI FNPB
-	LI AKAPP
-	LR 0,A
-	PI FNPB
-	LI AKKEY
-	LR 0,A
-	PI FNPB
 	CLR
-	LR 0,A
-	PI FNPB
+	LR 2,A
+	PI FNBEG		; leaves DC0 on the TX page: bytes stored there append
+	LI AKCREAT
+	ST
+	LI AKCREAH
+	ST
+	LI AKAPP
+	ST
+	LI AKKEY
+	ST
+	LR A,10
+	ST
+	CLR
+	ST			; reserved, and not optional
 	PI FNGO
 	PI FNACK
 	LEAVE
@@ -116,6 +125,11 @@ AKREAD:	ENTER
 ; AKWRITE -- WRITE_APPKEY with VNAME. The payload is a length word then the
 ;   value, which is what READ_APPKEY hands back.
 AKWRITE: ENTER
+	LI AKWRMOD
+	LR 1,A
+	PI AKOPEN
+	CI 0
+	BNZ AKWX
 	LI FD_FUJI
 	LR 0,A
 	LI FC_AKWR
@@ -134,7 +148,7 @@ AKWRITE: ENTER
 	PI FNFIX
 	PI FNGO
 	PI FNACK
-	LEAVE
+AKWX:	LEAVE
 
 ; ---------------------------------------------------------------------------
 ; SEDIT -- type a name.

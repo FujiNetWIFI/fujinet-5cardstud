@@ -63,6 +63,11 @@ FC_AKOPN EQU 0DCH
 FC_AKCLS EQU 0DBH
 FC_AKRD	EQU 0DDH
 FC_AKWR	EQU 0DEH
+; The OPEN struct is SIX bytes -- creator lo, creator hi, app, key, mode,
+; reserved -- sent as the payload, not as parameters (see AKOPEN).
 AKCREAT	EQU 1
+AKCREAH	EQU 0
 AKAPP	EQU 1
 AKKEY	EQU 0
+AKRDMOD	EQU 0
+AKWRMOD	EQU 1
