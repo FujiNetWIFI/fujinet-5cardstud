@@ -1,40 +1,37 @@
-#!/bin/bash
-# Build (if stale) and run 5 Card Stud under the FujiNet-patched o2em against a
-# live fujinet-pc-rs232.
+#!/usr/bin/env bash
+# run.sh -- 5 Card Stud in MAME's Odyssey 2 with the FujiNet cart, in a
+# window, against a live fujinet-pc.
 #
-#   ./run.sh                                       windowed, interactive
-#   ./run.sh -frames=600 -dumpscr=/tmp/s.ppm -dumptxt=1
-#   ./run.sh -input=90:d,150:f -frames=400         replay stick input
-#   ./run.sh -resetat=300 -frames=600              prove reset survival
+#   ./run.sh                          build/5card.bin (built if missing)
+#   ./run.sh path/to/image.bin        another image (more MAME options after it)
+#   ENDPOINT=http://host:port/ ./run.sh   rebuild for that server first
 #
-# fujinet-pc-rs232 must be running with [BOIP] enabled (port 9995 by default).
-# The console BIOS is copyrighted and is not in this repo: BIOSDIR defaults to
-# the firmware tree's gitignored bios/, which is where the bring-up keeps it.
-set -e
-HERE="$(cd "$(dirname "$0")" && pwd)"
-O2EM="${O2EM:-$HOME/Workspace/o2em/o2em}"
-BIOSDIR="${BIOSDIR:-$HOME/Workspace/fujinet-firmware/pico/o2/bios}"
-FUJI="${FUJI:-127.0.0.1:9995}"
-CART="${CART:-5card}"
+# Needs ~/Workspace/mame (MAME_DIR) with the O2 FujiNet cart device grafted in
+# (fujinet-firmware pico/o2/emu/apply-mame.sh: protocol 2, the APPBANK pages)
+# and a fujinet-pc BoIP listener on FUJINET_TCP (default 127.0.0.1:9995).
+#
+# MAME's keys: the arrow keys are the stick, Left Ctrl its button; letters
+# and digits are the console's keyboard, Enter is ENT and Backspace CLR; F1
+# the console's RESET.
+#
+# MAME runs from its own tree, so every path here is absolute.
+set -euo pipefail
+cd "$(dirname "$0")"
+HERE="$PWD"
 
-if [ ! -x "$O2EM" ]; then
-    echo "o2em not found or not executable at: $O2EM" >&2
-    echo "Build the FujiNet-patched o2em first:" >&2
-    echo "  ~/Workspace/fujinet-firmware/pico/o2/emu/apply.sh ~/Workspace/o2em" >&2
-    exit 1
-fi
-if [ ! -f "$BIOSDIR/o2rom.bin" ]; then
-    echo "No console BIOS at $BIOSDIR/o2rom.bin -- supply your own (it is" >&2
-    echo "copyrighted and not distributed here), or set BIOSDIR." >&2
-    exit 1
-fi
+MAME_DIR="${MAME_DIR:-$HOME/Workspace/mame}"
+export FUJINET_TCP="${FUJINET_TCP:-127.0.0.1:9995}"
+IMAGE="${1:-$HERE/build/5card.bin}"
+[ "${IMAGE#/}" = "$IMAGE" ] && IMAGE="$HERE/$IMAGE"
 
-# Rebuild only when a source is newer than the image, same as intv/run.sh.
-if [ ! -f "$HERE/build/$CART.bin" ] || \
-   [ -n "$(find "$HERE" -maxdepth 1 \( -name '*.a48' -o -name '*.inc' \) -newer "$HERE/build/$CART.bin")" ]; then
-    echo "Building $CART.bin..."
-    "$HERE/build.sh" "$CART"
+if [ -n "${ENDPOINT:-}" ] || [ ! -f build/5card.bin ]; then
+    ./build.sh
 fi
+[ -f "$IMAGE" ] || { echo "run.sh: no $IMAGE" >&2; exit 1; }
+[ -x "$MAME_DIR/mame" ] || { echo "run.sh: no MAME at $MAME_DIR" >&2; exit 1; }
 
-exec "$O2EM" -romdir="$HERE/build/" -biosdir="$BIOSDIR/" -nosound \
-     -fujinet="$FUJI" -fujinet-debug=1 "$@" "$CART.bin"
+mkdir -p "$HERE/build/snap" "$HERE/build/cfg"
+cd "$MAME_DIR"
+exec ./mame odyssey2 -cartslot fujinet -cart "$IMAGE" \
+    -snapshot_directory "$HERE/build/snap" -cfg_directory "$HERE/build/cfg" \
+    -window -nomax "${@:2}"

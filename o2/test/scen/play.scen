@@ -1,0 +1,20 @@
+# play.scen -- at the AI table with two bots: a burst for tools/rowcheck.py
+# while the game runs, the help (H) and back, then L leaves for the list.
+wait 60
+snap title
+wait 300
+press down
+press down
+wait 10
+press fire
+wait 600
+burst live 60
+key H
+wait 40
+snap help
+key SPACE
+wait 90
+snap back
+key L
+wait 300
+snap left

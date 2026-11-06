@@ -1,5 +1,5 @@
 #ifdef _CMOC_VERSION_
-#include "coco/coco_bool.h"
+#include <fujinet-int.h>
 #include <cmoc.h>
 #include <coco.h>
 unsigned char kbhit(void);
@@ -53,6 +53,10 @@ unsigned char y_bump = 1;
 #define HOW_TO_PLAY_ROW_START 3
 #endif 
 
+#ifndef drawTextCursor
+#define drawTextCursor drawChip
+#endif
+
 unsigned char redrawGameScreen = 0;
 
 /// @brief Convenience function to draw text centered at row Y
@@ -80,33 +84,33 @@ void resetScreenWithBorder() {
 void showHelpScreen() {
   static unsigned char y;
   enableDoubleBuffer();
-  centerStatusText("LOADING INSTRUCTIONS..");
+  centerStatusText(TXT("LOADING INSTRUCTIONS..", "Loading instructions.."));
   drawBuffer();
 
   // This COULD be retrieved from the server, especially if
   // this client were game agnostic.
   resetScreenWithBorder();
   
-  centerText(HOW_TO_PLAY_ROW_START,"HOW TO PLAY 5 CARD STUD");
+  centerText(HOW_TO_PLAY_ROW_START,TXT("HOW TO PLAY 5 CARD STUD", "How to play 5 Card Stud"));
   y=HOW_TO_PLAY_ROW_START+1;
   
   #ifndef SKIP_FIRST_BUMP
   BUMP_LINE
   #endif
                   //12345678901234567890123456789012
-  y++;centerText(y, "PLAYERS ARE DEALT 5 CARDS OVER");
-  y++;centerText(y, "FOUR ROUNDS.  IN EVERY ROUND, ");
-  y++;centerText(y, "PLAYERS BET, CALL, AND RAISE. ");
+  y++;centerText(y, TXT("PLAYERS ARE DEALT 5 CARDS OVER", "Players are dealt 5 cards over"));
+  y++;centerText(y, TXT("FOUR ROUNDS.  IN EVERY ROUND, ", "four rounds.  In every round, "));
+  y++;centerText(y, TXT("PLAYERS BET, CALL, AND RAISE. ", "players bet, call, and raise. "));
   y+=2;
   
-  centerText(y, "MOVES");
+  centerText(y, TXT("MOVES", "Moves"));
   
   BUMP_LINE        //12345678901234567890123456789012
-  y++;centerText(y, "FOLD  - QUIT THE HAND        ");BUMP_LINE
-  y++;centerText(y, "CHECK - FREE PASS            ");BUMP_LINE
-  y++;centerText(y, "BET / - INCREASE BET. OTHERS ");
-  y++;centerText(y, "RAISE   MUST CALL TO STAY IN ");BUMP_LINE
-  y++;centerText(y, "CALL  - MATCH THE CURRENT BET");
+  y++;centerText(y, TXT("FOLD  - QUIT THE HAND        ", "Fold  - Quit the hand        "));BUMP_LINE
+  y++;centerText(y, TXT("CHECK - FREE PASS            ", "Check - Free pass            "));BUMP_LINE
+  y++;centerText(y, TXT("BET / - INCREASE BET. OTHERS ", "Bet / - Increase bet. Others "));
+  y++;centerText(y, TXT("RAISE   MUST CALL TO STAY IN ", "Raise   must call to stay in "));BUMP_LINE
+  y++;centerText(y, TXT("CALL  - MATCH THE CURRENT BET", "Call  - Match the current bet"));
 
   CLEAR_BUMP
 
@@ -116,8 +120,10 @@ void showHelpScreen() {
   centerStatusText("PRESS A TO CONTINUE");
 #elif defined(BUILD_SMS)
   centerStatusText("PRESS 1 TO CONTINUE");
+#elif defined(BUILD_ATARI7800) || defined(BUILD_ATARI5200)
+  centerStatusText("PRESS FIRE TO CONTINUE");
 #else
-  centerStatusText("PRESS A KEY TO CONTINUE");
+  centerStatusText(TXT("PRESS A KEY TO CONTINUE", "Press a key to continue"));
 #endif
 
   drawBuffer();
@@ -137,7 +143,7 @@ void showHelpScreen() {
 /// @brief Action called in Welcome Screen to check if a server name is stored in an app key
 void welcomeActionVerifyServerDetails() {
   // Read server endpoint into server and query
-  read_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, tempBuffer);
+  read_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, (uint8_t *) tempBuffer);
 
   i=(unsigned char)strlen(tempBuffer);
   if (i) {
@@ -167,7 +173,7 @@ bool inputFieldCycle(uint8_t x, uint8_t y, uint8_t max, char* buffer) {
     lastY=y;
     curx = (unsigned char)strlen((char *)buffer);
     drawText(x,y, (const char *)buffer);
-    drawChip(x+curx,y);
+    drawTextCursor(x+curx,y);
   }
    // curx=i;
    // done=0;
@@ -202,7 +208,7 @@ bool inputFieldCycle(uint8_t x, uint8_t y, uint8_t max, char* buffer) {
     }
 
     drawText(x,y, (const char *)buffer);
-    drawChip(x+curx,y);
+    drawTextCursor(x+curx,y);
 
     return done==1;
   }
@@ -220,7 +226,7 @@ void showPlayerNameScreen() {
   drawBuffer();
   disableDoubleBuffer();
   
-  centerText(HEIGHT/2, "ENTER YOUR NAME");
+  centerText(HEIGHT/2, TXT("ENTER YOUR NAME", "Enter your name"));
   drawBox(WIDTH/2-PLAYER_NAME_MAX/2-1,HEIGHT/2+2,PLAYER_NAME_MAX+1,1);
   drawText(WIDTH/2-PLAYER_NAME_MAX/2,HEIGHT/2+3, playerName);
 
@@ -240,13 +246,13 @@ void showPlayerNameScreen() {
 
   drawBuffer();
 
-  write_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, playerName);
+  write_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, (uint8_t *) playerName);
 }
 
 /// @brief Action called in Welcome Screen to verify player has a name
 void welcomeActionVerifyPlayerName() {
   // Read player's name from app key
-  read_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, tempBuffer);
+  read_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, (uint8_t *) tempBuffer);
 
   tempBuffer[12]=0;
   if (tempBuffer[0] != 0)
@@ -265,14 +271,14 @@ void showWelcomeScreen() {
   welcomeActionVerifyPlayerName();
   welcomeActionVerifyServerDetails();
 
-  strcpy(tempBuffer, "WELCOME ");
+  strcpy(tempBuffer, TXT("WELCOME ", "Welcome "));
   strcat(tempBuffer, playerName);
   centerText(HEIGHT/2,tempBuffer);
   drawBuffer();
   pause(45);
 
 
-  // If first run, show the help screen
+  // On first run, record the help as seen without showing it
   if (prefs[PREF_HELP]!=2) {
     prefs[PREF_HELP]=2;
     savePrefs();
@@ -290,7 +296,7 @@ void tableActionJoinServer() {
   strcat(query, "&player=");
   strcat(query, playerName);
 
-  // Replace space with + for pshowWelcomeScreenlayer name
+  // Replace space with + for player name
   i=(unsigned char)strlen(query);
   while(--i)
     if (query[i]==' ')
@@ -312,16 +318,16 @@ void showTableSelectionScreen() {
     // SkipApiCall will be true if toggling color, to redraw
 
     if (!skipApiCall) {
-      // Show the status immediately before retrival
-      centerStatusText("REFRESHING TABLE LIST..");
+      // Show the status immediately before retrieval
+      centerStatusText(TXT("REFRESHING TABLE LIST..", "Refreshing table list.."));
       drawBuffer();
     }
 
     resetScreenWithBorder();
     
-    centerText(3, "CHOOSE A TABLE TO JOIN");
-    drawText(TABLE_LEFT,TABLE_TOP, "TABLE");
-    drawText(TABLE_LEFT+19,TABLE_TOP, "PLAYERS");
+    centerText(3, TXT("CHOOSE A TABLE TO JOIN", "Choose a table to join"));
+    drawText(TABLE_LEFT,TABLE_TOP, TXT("TABLE", "Table"));
+    drawText(TABLE_LEFT+19,TABLE_TOP, TXT("PLAYERS", "Players"));
     drawLine(TABLE_LEFT,TABLE_TOP+1,26);
     
     drawBuffer();
@@ -336,6 +342,12 @@ void showTableSelectionScreen() {
     if (clientState.tables.count>0) {
       for(i=0;i<clientState.tables.count;++i) {
         table = &clientState.tables.table[i];
+#ifdef MIXED_CASE
+        // The server sends table names in lower case
+        for (j=0;table->name[j];++j)
+          if (table->name[j]>='a' && table->name[j]<='z')
+            table->name[j]-=32;
+#endif
         drawText(TABLE_LEFT,TABLE_TOP+2+i*TABLE_ROW_HEIGHT, table->name);
         drawText((unsigned char)(TABLE_LEFT+26-strlen(table->players)), TABLE_TOP+2+i*TABLE_ROW_HEIGHT, table->players);
         
@@ -344,11 +356,17 @@ void showTableSelectionScreen() {
         }
       }
     } else {
-      centerText(12, "NO TABLES ARE AVAILABLE");
+      centerText(12, TXT("NO TABLES ARE AVAILABLE", "No tables are available"));
     }
     
     //drawStatusText(" R+EFRESH  H+ELP  C+OLOR  S+OUND  Q+UIT");
-#if WIDTH>=40 
+#if defined(TABLE_HINTS)
+    drawStatusText(TABLE_HINTS);
+#elif defined(BUILD_ATARI5200)
+    // Keypad, not letters: src/atari5200/input.c maps 1-5 onto these shortcuts.
+    //             1234567890123456789012345678901234567890
+    drawStatusText("1-REFRESH 2-HELP 3-COLOR 4-NAME 5-QUIT");
+#elif WIDTH>=40 
     drawStatusText("R-EFRESH   H-ELP  C-OLOR   N-AME   Q-UIT");
 #elif defined(BUILD_COLECO)
     // Keypad, not letters: src/coleco/input.c maps 1-5 onto these shortcuts.
@@ -362,6 +380,10 @@ void showTableSelectionScreen() {
     // Buttons, not letters: src/sms/input.c maps them onto these shortcuts.
     //             12345678901234567890123456789012
     drawStatusText("1-JOIN <NAME >REFRESH PAUSE-HELP");
+#elif defined(BUILD_ATARI7800)
+    // Buttons and switches: src/atari7800/input.c maps them onto these shortcuts.
+    //             12345678901234567890123456789012
+    drawStatusText("1-JOIN  PAUSE-HELP  SELECT-NAME");
 #else               //12345678901234567890123456789012
     drawStatusText("R-EFRESH   H-ELP   N-AME   Q-UIT");
 #endif
@@ -379,12 +401,14 @@ void showTableSelectionScreen() {
         break;
       } else if (inputKey == 'r' || inputKey =='R') {
         break;
+#ifndef NO_COLOR
       } else if (inputKey == 'c' || inputKey =='C') {
         prefs[PREF_COLOR] = cycleNextColor()+1;
         savePrefs();
         enableDoubleBuffer();
         skipApiCall=1;
         break;
+#endif
         } else if (inputKey == 'n' || inputKey =='N') {
         showPlayerNameScreen();
         break;
@@ -427,13 +451,13 @@ void showTableSelectionScreen() {
       strcat(tempBuffer, query);
 
       //  Update server app key in case of reboot
-      write_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, tempBuffer);
+      write_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, (uint8_t *) tempBuffer);
 
     }
   
   }
 
-  centerText(HEIGHT-7, "CONNECTING TO SERVER");
+  centerText(HEIGHT-7, TXT("CONNECTING TO SERVER", "Connecting to server"));
   drawBuffer();
 
   progressAnim(HEIGHT-5);
@@ -538,7 +562,11 @@ void showInGameMenuScreen() {
     x = WIDTH/2-9;
     y = HEIGHT/2-3;
 
+#ifdef NO_COLOR
+    drawBox(x-3,y-2,22,7);
+#else
     drawBox(x-3,y-2,22,9);
+#endif
 #ifdef BUILD_COLECO
     drawText(x,y,    "  5: QUIT TABLE");
     drawText(x,y+=2, "  2: HOW TO PLAY");
@@ -552,12 +580,24 @@ void showInGameMenuScreen() {
     drawText(x,y,    "  2+1: QUIT TABLE");
     drawText(x,y+=2, "PAUSE: HOW TO PLAY");
     drawText(x,y+=2, "    2: KEEP PLAYING");
+#elif defined(BUILD_ATARI7800)
+    drawText(x-2,y,    "SEL+PAUSE: QUIT TABLE");
+    drawText(x-2,y+=2, "PAUSE: HOW TO PLAY");
+    drawText(x-2,y+=2, "2: KEEP PLAYING");
+#elif defined(BUILD_ATARI5200)
+    // The font has no * or #: RESET is the labeled key that backs out.
+    drawText(x,y,    "    5: QUIT TABLE");
+    drawText(x,y+=2, "    2: HOW TO PLAY");
+    drawText(x,y+=2, "    3: TABLE COLOR");
+    drawText(x,y+=2, "RESET: KEEP PLAYING");
 #else
-    drawText(x,y,    "  Q: QUIT TABLE");
-    drawText(x,y+=2, "  H: HOW TO PLAY");
+    drawText(x,y,    TXT("  Q: QUIT TABLE", "  Q: Quit table"));
+    drawText(x,y+=2, TXT("  H: HOW TO PLAY", "  H: How to play"));
+#ifndef NO_COLOR
     drawText(x,y+=2, "  C: COLOR TOGGLE");
+#endif
     //drawText(x,y+=2, "  S: SOUND TOGGLE");
-    drawText(x,y+=2, "ESC: KEEP PLAYING");
+    drawText(x,y+=2, TXT("ESC: KEEP PLAYING", "ESC: Keep playing"));
 #endif
     drawBuffer();
 
@@ -567,12 +607,14 @@ void showInGameMenuScreen() {
     while (i==1) {
       readCommonInput();
       switch (inputKey) {
+#ifndef NO_COLOR
         case 'c':
         case 'C':
             prefs[PREF_COLOR] = cycleNextColor()+1;
             savePrefs();
             i=2;
             break;
+#endif
         case 'h':
         case 'H':
           showHelpScreen();
@@ -583,7 +625,7 @@ void showInGameMenuScreen() {
         case 'q':
         case 'Q':
           resetScreenWithBorder();
-          centerText(10, "PLEASE WAIT");
+          centerText(10, TXT("PLEASE WAIT", "Please wait"));
           drawBuffer();
 
           // Inform server player is leaving
@@ -591,7 +633,7 @@ void showInGameMenuScreen() {
           progressAnim(12);
           
           //  Clear server app key in case of reboot
-          write_appkey(AK_LOBBY_CREATOR_ID,  AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, "");
+          write_appkey(AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, (uint8_t *) "");
 
           // Clear query so a new table will be selected
           clearCommonInput();

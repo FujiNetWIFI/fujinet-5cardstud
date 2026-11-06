@@ -16,7 +16,7 @@
  *
  * Cards are 5x5 -- rank top left, suit below -- and backs are checkerboard.
  * A hand is a fan: the shared code lays a seat's cards every 4 columns
- * (src/h89/vars.h's CARD_OFFSET), so each card's right border is the next
+ * (src/h89/vars.h's CARD_SPREAD), so each card's right border is the next
  * one's left, and where two meet the border column turns into T junctions.
  * An opponent's face-down card is covered but for a two column sliver; your
  * own has a checkerboard strip down its left to show the others can't see it.
@@ -40,7 +40,9 @@
 #include "logo.h"
 #include "../platform-specific/graphics.h"
 
+#ifndef CARD_W
 #define CARD_W 5
+#endif
 #define CARD_H 5
 
 // The table rail: an oval from row RAIL_TOP to RAIL_BOTTOM, column RAIL_LEFT

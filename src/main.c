@@ -6,7 +6,7 @@
  */
 
 #ifdef _CMOC_VERSION_
-#include "coco/coco_bool.h"
+#include <fujinet-int.h>
 #else
 #include <stdlib.h>
 #include <stdint.h>

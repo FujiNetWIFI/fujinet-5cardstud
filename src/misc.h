@@ -81,8 +81,19 @@
 #define _Packed
 #endif
 
+#ifdef __TRS80M2__
+#define _Packed
+#endif
+
 #ifdef __H89__
 #define _Packed
+#endif
+
+// Screen text: all caps, or real text on platforms with lower case
+#ifdef MIXED_CASE
+#define TXT(caps, mixed) mixed
+#else
+#define TXT(caps, mixed) caps
 #endif
 
 typedef _Packed struct {
@@ -192,9 +203,10 @@ extern char prefs[4];
 
 
 // Screen specific player/bet coordinates. These are declared by each platform's
-// own vars.h as well; the ColecoVision and NES make them const so they land
-// in ROM rather than spending 96 bytes of RAM on tables nobody writes.
-#if !defined(BUILD_COLECO) && !defined(BUILD_NES)
+// own vars.h as well; the ColecoVision, NES, 7800 and 5200 make them const so
+// they land in ROM rather than spending 96 bytes of RAM on tables nobody writes.
+#if !defined(BUILD_COLECO) && !defined(BUILD_NES) && !defined(BUILD_ATARI7800) \
+    && !defined(BUILD_ATARI5200)
 extern unsigned char playerXMaster[] ;
 extern unsigned char playerYMaster[] ;
 extern char playerDirMaster[] ;

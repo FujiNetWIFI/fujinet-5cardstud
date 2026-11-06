@@ -14,10 +14,9 @@
 // right border with the next: the shared code's card offsets (0,1,3,5,7, or
 // 0,2,4,6,8 spread) count in steps of two columns here, so a face-down hole
 // card shows as a two column sliver. Opponents' hands are 19 wide, YOU's 21.
-#define CARD_OFFSET(n) ((n)*2)
-
-// A right-side seat's name and purse end at its card's right edge
-#define NAME_RIGHT_X 4
+// A right-side seat's name and purse end at its card's right edge (CARD_W-1).
+#define CARD_W 5
+#define CARD_SPREAD(n) ((n)*2)
 
 // The table list: double spaced like the other platforms' while it fits
 // between the header and the frame's bottom edge (row 23), one table a row

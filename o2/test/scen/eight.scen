@@ -1,0 +1,32 @@
+# eight.scen -- a DEVTABLES build at dev7 (seven bots and us, eight
+# seats): six opponents' rows; the spotlight stepped round every seat
+# scrolls them to show the seventh.
+wait 360
+snap devtables
+press fire
+wait 900
+snap eight
+press up
+wait 50
+snap s1
+press up
+wait 50
+snap s2
+press up
+wait 50
+snap s3
+press up
+wait 50
+snap s4
+press up
+wait 50
+snap s5
+press up
+wait 50
+snap s6
+press up
+wait 50
+snap s7
+press up
+wait 50
+snap s8

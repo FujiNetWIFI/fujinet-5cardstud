@@ -3,7 +3,7 @@
 /*
   Graphics functionality
 */
-#include "coco_bool.h"
+#include <fujinet-int.h>
 
 #include "hires.h"
 #include "vars.h"
@@ -62,7 +62,7 @@ bool always_render_full_cards = 0;
 uint8_t xor_mask=0;
 uint8_t font_shift=0;
 #ifdef COCO3
-/* When set, hires_Draw recolours card-back glyphs via card_back_map.
+/* When set, hires_Draw recolors card-back glyphs via card_back_map.
    CARD_BACK() is a no-op on CoCo 1/2, which has no extended palette. */
 uint8_t card_back = 0;
 #define CARD_BACK(on) card_back = (on)
@@ -181,9 +181,7 @@ void resetScreen() {
     uint8_t i;
 
 #ifdef COCO3
-    /* Clear all 192 game scanlines via Task 1; the wavy table-edge
-       decorations from the old 2bpp build are handled by drawBorder()
-       later in Phase 2e. */
+    /* Clear all 192 game scanlines via Task 1. */
     hires_Mask(0, 0, WIDTH, HEIGHT * 8, 0);
 #else
     memset((uint8_t *)SCREEN, 0, WIDTH * 179);
@@ -267,7 +265,7 @@ void drawCardAt(unsigned char x, unsigned char y, unsigned char partial, const c
 #ifdef COCO3
         /* 4bpp: each char cell is BPC bytes wide; the left edge of a
            card at column x is the RIGHT pixel of the last byte of cell
-           (x-1). Set its low nibble to colour 2 (black). */
+           (x-1). Set its low nibble to color 2 (black). */
         if (x==WIDTH-3) {
             /* At this position the hidden card to the right needs
                clearing - same as the original WIDTH==40 path. */
@@ -504,7 +502,7 @@ static const unsigned char task1MMUBlocks[8] = {
 void setRGB()
 {
 #ifdef COCO3
-    /* RGB encoding (RrGgBb); entries 0-3 are the pmode3 charset colours. */
+    /* RGB encoding (RrGgBb); entries 0-3 are the pmode3 charset colors. */
     *(byte *)0xFFB0 = 18;   /* 0  green felt   */
     *(byte *)0xFFB1 = 63;   /* 1  white        */
     *(byte *)0xFFB2 = 0;    /* 2  black        */
@@ -527,7 +525,7 @@ void setRGB()
 void setComposite()
 {
 #ifdef COCO3
-    /* Composite encoding (luminance + chroma) of the same 16 colours. */
+    /* Composite encoding (luminance + chroma) of the same 16 colors. */
     *(byte *)0xFFB0 = 30;   /* 0  green felt   */
     *(byte *)0xFFB1 = 63;   /* 1  white        */
     *(byte *)0xFFB2 = 0;    /* 2  black        */
@@ -590,7 +588,7 @@ void rgbOrComposite() {
 }
 
 #ifdef COCO3
-/* Recolour two pmode3 glyphs for the 16-colour build: the dash's red
+/* Recolor two pmode3 glyphs for the 16-color build: the dash's red
    pixels become black, and the clock's 1/2 pixels swap so it reads as a
    white face with a black hand. */
 static void patchFontForCoco3(void)

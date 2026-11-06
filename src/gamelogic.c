@@ -36,11 +36,13 @@ extern unsigned char redrawGameScreen;
 #define LEFT_JUSTIFY_PLAYER_PURSE 0
 #endif
 
-// Columns from a seat's first card to the card n steps along its fan: a
-// step is a column on the tile platforms, whose cards are 3 wide and overlap
-// the one before but for its first two. The H89's are 5 wide, every 4.
-#ifndef CARD_OFFSET
-#define CARD_OFFSET(n) (n)
+#ifndef CARD_W
+#define CARD_W 2
+#endif
+
+// Screen columns for a card offset given in half-card steps of a 2-wide card
+#ifndef CARD_SPREAD
+#define CARD_SPREAD(n) (n)
 #endif
 
 void progressAnim(unsigned char y) {
@@ -106,11 +108,7 @@ void drawNamePurse() {
     // along (the H89's right edge). Not x+=1 by default: sccz80 compiles that
     // longer than x++.
     if (playerDir[i]<0)
-#ifdef NAME_RIGHT_X
-      x+=NAME_RIGHT_X;
-#else
-      x++;
-#endif
+      x+=CARD_W-1;
 
     if (i>0 || state.viewing) {
       xx=x;
@@ -122,15 +120,20 @@ void drawNamePurse() {
       drawText(xx, y, state.players[i].name);
 
       if (state.activePlayer!=i) {
+#ifndef drawActiveName
         hideLine(xx, y+1, (unsigned char)strlen(state.players[i].name));
+#endif
       } else {
         cursorX=xx;
         cursorY=y;
+#ifdef drawActiveName
+        drawActiveName(xx, y, (unsigned char)strlen(state.players[i].name));
+#endif
       }
     } else {
       // Draw YOU player name
       #if WIDTH>=40
-        drawText(x-5, playerY[i]+2, (const char *)" YOU");
+        drawText(x-5, playerY[i]+2, (const char *)TXT(" YOU", " You"));
       #else
         // Squeezed for horizontal space, so shift above cards
         // drawText(x+3, playerY[i]-1, (const char *)" YOU");
@@ -263,7 +266,7 @@ void drawCards(bool finalFlip) {
         dummy = doAnim || hand[0]!='?' || state.players[i].status != 1;
         
         drawCard(
-          playerX[i]+CARD_OFFSET((!fullFirst)*xOffset+(fullFirst)*(j-1))*playerDir[i],
+          playerX[i]+CARD_SPREAD(((!fullFirst)*xOffset+(fullFirst)*(j-1))*playerDir[i]),
           playerY[i],
           //doAnim || hand[0]!='?' || state.players[i].status != 1 ? FULL_CARD : playerDir[i]>0 ? PARTIAL_LEFT : PARTIAL_RIGHT,
           dummy ? FULL_CARD : playerDir[i]>0 ? PARTIAL_LEFT : PARTIAL_RIGHT,
@@ -300,7 +303,7 @@ void drawCards(bool finalFlip) {
         continue;
 
       for (j=1;j<=9; j+=2) {
-        drawCard(playerX[i]+CARD_OFFSET(j-1)*playerDir[i], playerY[i], FULL_CARD,state.players[i].hand+j-1, false);
+        drawCard(playerX[i]+CARD_SPREAD((j-1)*playerDir[i]), playerY[i], FULL_CARD,state.players[i].hand+j-1, false);
       }
 
       soundDealCard();
@@ -331,7 +334,7 @@ void checkIfSpectatorStatusChanged() {
   wasViewing = viewing;
 
   if (viewing) {
-    drawStatusText("TABLE FULL: WATCHING AS A SPECTATOR");
+    drawStatusText(TXT("TABLE FULL: WATCHING AS A SPECTATOR", "Table full: watching as a spectator"));
     drawBuffer();
     pause(80);
   } else if (
@@ -343,7 +346,7 @@ void checkIfSpectatorStatusChanged() {
      * Otherwise, they are re-joining due to connection error, so we do not delay
      */
 
-    centerStatusText("YOU SIT DOWN AT THE TABLE");
+    centerStatusText(TXT("YOU SIT DOWN AT THE TABLE", "You sit down at the table"));
     drawBuffer();
 
     soundJoinGame();
@@ -360,7 +363,7 @@ void checkIfPlayerCountChanged() {
   if (state.playerCount>1 && prevPlayerCount > 0) {
     if (state.playerCount < prevPlayerCount) {
 
-      drawStatusText("A PLAYER LEFT THE TABLE");
+      drawStatusText(TXT("A PLAYER LEFT THE TABLE", "A player left the table"));
       drawBuffer();
 
       soundPlayerLeft();
@@ -369,7 +372,7 @@ void checkIfPlayerCountChanged() {
       //   sound 1,255-j*j,10,j:pause 2:sound:pause 8
       // next
     } else {
-      strcpy(state.lastResult, "A NEW PLAYER JOINS THE TABLE");
+      strcpy(state.lastResult, TXT("A NEW PLAYER JOINS THE TABLE", "A new player joins the table"));
       drawStatusText(state.lastResult);
       drawBuffer();
 
@@ -417,6 +420,7 @@ void drawStatusTimeLeft() {
 }
 
 void highlightActivePlayer() {
+#ifndef drawActiveName
  if (state.activePlayer>0 && state.playerCount>1) {
    i=(unsigned char)strlen(state.players[state.activePlayer].name);
     for (j=2;j<=i;j++) {
@@ -424,6 +428,7 @@ void highlightActivePlayer() {
       drawBuffer();
     }
   }
+#endif
 }
 
 void animateChipsToPotOnRoundEnd() {
@@ -484,7 +489,7 @@ void drawGameStatus() {
     return;
 
   if (state.activePlayer>0) {
-    strcpy(tempBuffer,"WAITING ON ");
+    strcpy(tempBuffer,TXT("WAITING ON ", "Waiting on "));
     strcat(tempBuffer, state.players[state.activePlayer].name);
     drawStatusText(tempBuffer);
 

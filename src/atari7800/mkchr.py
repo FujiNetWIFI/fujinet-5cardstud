@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""mkchr.py -- build the Atari 7800 tile set for 5 Card Stud.
+
+The NES port's art (src/nes/mkchr.py), from the same sources --
+src/coleco/font.bin and src/coleco/udg.h -- cut to the 128 tiles MARIA's
+engine allows. Pixel values are chosen so one palette draws the whole table:
+
+  0 black (BACKGRND)   1 white   2 felt green   3 red
+
+Palette 0 is white, felt, red; palette 1 is white, black, red. Text is white
+on colour 2, so the same 64 glyphs read white on felt in palette 0 and white
+on black (the status bar) in palette 1, and black card ink is colour 0. A
+highlight is a palette swap, not a tile, so the NES's underline and bar
+variants are not needed.
+
+Tiles $20-$5F are ASCII; the card art fills $01-$1F and $60-$7F.
+Writes src/atari7800/tiles.h, src/atari7800/tiles.s (through mktiles.py
+--chr) and support/atari7800/tilemap.lua (tile -> character, for the MAME
+smoke test). Run it by hand after changing the font or the art; the outputs
+are committed.
+"""
+
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+FONT = os.path.join(HERE, '..', 'coleco', 'font.bin')
+UDG = os.path.join(HERE, '..', 'coleco', 'udg.h')
+TILES_H = os.path.join(HERE, 'tiles.h')
+TILES_S = os.path.join(HERE, 'tiles.s')
+MKTILES = os.path.join(HERE, 'mktiles.py')
+TILEMAP = os.path.join(HERE, '..', '..', 'support', 'atari7800', 'tilemap.lua')
+
+K, W, G, R = 0, 1, 2, 3
+RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
+TILES = 128
+
+
+def load_font():
+    data = open(FONT, 'rb').read()
+    return {0x20 + i: data[i * 8:(i + 1) * 8] for i in range(96)}
+
+
+def load_udg():
+    text = open(UDG).read()
+    codes = {n: int(c, 16) for n, c in re.findall(r'#define (UDG_\w+) (0x[0-9A-Fa-f]+)', text)}
+    body = re.sub(r'/\*.*?\*/', '', text[text.index('udg[] ='):], flags=re.S)
+    raw = [int(h, 16) for h in re.findall(r'0x([0-9A-Fa-f]{2})', body)]
+    art = {code: bytes(raw[(code - 0x80) * 8:(code - 0x80) * 8 + 8]) for code in codes.values()}
+    return codes, art
+
+
+def tile(rows, ink, paper, ink_rows=None):
+    """One 2bpp tile as NES CHR (plane 0, then plane 1): set pixels take `ink`,
+    clear ones `paper`; ink_rows recolours the set pixels of given rows."""
+    px = [[((ink_rows or {}).get(r, ink) if (rows[r] >> (7 - c)) & 1 else paper)
+           for c in range(8)] for r in range(8)]
+    p0 = bytes(sum(((px[r][c] & 1) << (7 - c)) for c in range(8)) for r in range(8))
+    p1 = bytes(sum((((px[r][c] >> 1) & 1) << (7 - c)) for c in range(8)) for r in range(8))
+    return p0 + p1
+
+
+def main():
+    font = load_font()
+    codes, art = load_udg()
+    tiles = [None] * TILES
+    chars = {}
+    defs = []
+    free = list(range(0x01, 0x20)) + list(range(0x60, 0x80))
+
+    def place(n, data, ch='#'):
+        tiles[n] = data
+        chars[n] = ch
+        return n
+
+    def add(data, ch='#'):
+        return place(free.pop(0), data, ch)
+
+    def define(name, idx, note=''):
+        defs.append('#define %-22s 0x%02X%s' % (name, idx, ('  /* %s */' % note) if note else ''))
+
+    place(0x00, tile(bytes(8), W, G), ' ')
+    for c in range(0x20, 0x60):
+        place(c, tile(font[c], W, G), chr(c))
+
+    for n in ['CARD_TL', 'CARD_BL', 'CARD_TOP', 'CARD_BOT', 'CARD_TOP_TRIM', 'CARD_BOT_TRIM',
+              'CARD_VERT', 'CARD_BR_STUB', 'CARD_TR_STUB',
+              'BOX_TL', 'BOX_TR', 'BOX_H', 'BOX_BL', 'BOX_BR', 'BOX_V', 'CHIP']:
+        define('T_%s_RG' % n, add(tile(art[codes['UDG_' + n]], R, G)))
+    for n in ['CARD_VERT', 'BACK_RCOL_TOP', 'BACK_RCOL_MID', 'BACK_RCOL_BOT',
+              'BACK_L_TOP', 'BACK_R_TOP', 'BACK_L_MID', 'BACK_R_MID', 'BACK_L_BOT', 'BACK_R_BOT']:
+        define('T_%s_RW' % n, add(tile(art[codes['UDG_' + n]], R, W)))
+    define('T_BLANK_W', add(tile(bytes(8), W, W), ' '), 'card face interior')
+    for n in ['SCREEN_TL', 'SCREEN_TR', 'SCREEN_BL', 'SCREEN_BR']:
+        define('T_%s_GK' % n, add(tile(art[codes['UDG_' + n]], G, K)))
+
+    # The ranks need two runs of 13 in a row; $60 on is the only one left.
+    assert free[0] == 0x60, free[0]
+    define('T_RANK_RW', free[0], '13 ranks 2..A, red on white')
+    for r in RANKS:
+        add(tile(art[codes['UDG_RANK_' + r]], R, W))
+    define('T_RANK_KW', free[0], '13 ranks 2..A, black on white')
+    for r in RANKS:
+        add(tile(art[codes['UDG_RANK_' + r]], K, W))
+    for n, ink in [('DIAMOND', R), ('HEART', R), ('SPADE', K), ('CLUB', K)]:
+        define('T_SUIT_%s_%sW' % (n, 'R' if ink == R else 'K'), add(tile(art[codes['UDG_SUIT_' + n]], ink, W)))
+    # The hole-card marker's double rule is black on the MS-DOS original.
+    for n in ['HIDDEN_L', 'HIDDEN_R']:
+        define('T_%s_RW' % n, add(tile(art[codes['UDG_' + n]], R, W, ink_rows={1: K, 6: K})))
+
+    used = TILES - len(free)
+    for n in free:
+        place(n, tile(bytes(8), W, G), ' ')
+
+    with open(TILES_H, 'w') as f:
+        f.write('/* GENERATED by src/atari7800/mkchr.py from src/coleco/font.bin and udg.h.\n'
+                ' * Tile numbers in mt_tiles; $20-$5F are ASCII. %d of 128 tiles used.\n'
+                ' * Do not edit. */\n'
+                '#ifndef TILES_H\n#define TILES_H\n\n' % used)
+        f.write('\n'.join(defs) + '\n\n#endif /* TILES_H */\n')
+
+    with tempfile.NamedTemporaryFile(suffix='.chr', delete=False) as chr_file:
+        chr_file.write(b''.join(tiles))
+    try:
+        subprocess.run([sys.executable, MKTILES, '--chr', chr_file.name, TILES_S], check=True)
+    finally:
+        os.remove(chr_file.name)
+
+    with open(TILEMAP, 'w') as f:
+        f.write('-- GENERATED by src/atari7800/mkchr.py: what each tile reads as.\n'
+                '-- "#" is card art, " " a blank of any colour.\n'
+                'return {\n')
+        for i in range(TILES):
+            ch = chars[i]
+            f.write('  [%d] = %s,\n' % (i, '"\\""' if ch == '"' else '"%s"' % ch.replace('\\', '\\\\')))
+        f.write('}\n')
+    print('mkchr: %d tiles' % used)
+
+
+if __name__ == '__main__':
+    main()

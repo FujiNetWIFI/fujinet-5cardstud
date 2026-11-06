@@ -1,9 +1,6 @@
 PRODUCT = fcs
 #plus4 also works, but needs fujinet-lib
-PLATFORMS = apple2 c64 coco
-#MSX ROM, MSDOS, and Adam use fujinet-lib-experimental
-#Use make-exp <platform> to build them.
-#PLATFORMS = msxrom msdos adam
+PLATFORMS = apple2 c64 coco msdos adam msxrom model2
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
@@ -22,7 +19,7 @@ SRC_DIRS = src src/%PLATFORM%
 # - a URL to a git repo
 # - empty which will use whatever is the latest
 # - undefined, no fujinet-lib will be used
-FUJINET_LIB =
+FUJINET_LIB = https://github.com/FujiNetWIFI/fujinet-lib.git
 
 # Define extra dirs ("combos") that expand with a platform.
 # Format: platform+=combo1,combo2
@@ -31,7 +28,8 @@ PLATFORM_COMBOS = \
   atarixe+=atari \
   msxrom+=msx \
   msxdos+=msx \
-  adam_cpm+=adam
+  adam_cpm+=adam \
+  dragon+=coco
 
 CFLAGS_EXTRA_MSDOS = -q -otexan
 
@@ -39,14 +37,20 @@ CFLAGS_EXTRA_MSXROM = -DBUILD_MSX
 # Do not add -lmsxbios here: it displaces routines --generic-console relies on
 # and the SCREEN 2 display comes up garbled. src/msx/joyread.asm calls the two
 # BIOS entries it needs directly instead.
-LDFLAGS_EXTRA_MSXROM += --generic-console -pragma-redirect:CRT_FONT=_font -create-app -lm
+LDFLAGS_EXTRA_MSXROM += --generic-console -pragma-redirect:CRT_FONT=_font -create-app
+
+CFLAGS_EXTRA_MSX = -DBUILD_MSX
+LDFLAGS_EXTRA_MSX += --generic-console -pragma-redirect:CRT_FONT=_font
 
 # z88dk's +coleco -subtype=adam doesn't define an Adam-specific macro, so
 # supply the one all of src/adam is guarded by.
 CFLAGS_EXTRA_ADAM = -D__ADAM__
 LDFLAGS_EXTRA_ADAM += --generic-console -pragma-redirect:CRT_FONT=_font
 
-# ColecoVision cartridge. z88dk puts -D__COLECO__ in the target-wide OPTIONS
+# ColecoVision cartridge, with the coleco target now in fujinet-lib itself
+# (FujiNetWIFI/fujinet-lib#281, branch add-coleco):
+#   make FUJINET_LIB=<that lib's checkout> PLATFORMS=coleco coleco
+# z88dk puts -D__COLECO__ in the target-wide OPTIONS
 # line, so the Adam subtype defines it too -- __COLECO__ alone does not mean
 # ColecoVision. src/coleco is therefore guarded by BUILD_COLECO, the same way
 # src/msx is, and src/platform-specific/input.h can keep including every
@@ -64,14 +68,17 @@ LDFLAGS_EXTRA_COLECO += --generic-console -pragma-redirect:CRT_FONT=_font -m \
 
 LDFLAGS_EXTRA_APPLE2 = -C src/apple2/apple2-hgr.cfg
 
-# NES cartridge, with fujinet-lib-experimental's nes target. src/nes is guarded
+# CCP refuses a .COM that reaches past the TPA; the startup zeroes BSS anyway
+LDFLAGS_EXTRA_MODEL2 = -pragma-define:CRT_TRIM_BSS=1
+
+# NES cartridge. src/nes is guarded
 # by BUILD_NES the way src/coleco is. The linker config is the lib's FujiNet
 # layout with the CHR-ROM split so the game's own pattern table sits at $1000
 # beside the cc65 font the runtime insists on (see src/nes/nes.cfg).
 CFLAGS_EXTRA_NES = -DBUILD_NES
 NES_CFG = src/nes/nes.cfg
 
-# Sega Master System cartridge, with fujinet-lib-experimental's sms target.
+# Sega Master System cartridge.
 # src/sms is guarded by BUILD_SMS the way src/coleco is. -m leaves a map next
 # to the image; the client has to end below $7FD8 to stay a 32K image.
 CFLAGS_EXTRA_SMS = -DBUILD_SMS
@@ -106,22 +113,46 @@ LDFLAGS_EXTRA_H89-HDOS = $(H89_LDFLAGS)
 H89_APPMAKE ?= z88dk-appmake
 PRODUCT_UPPER = FCS
 
+# Atari 7800 cartridge.
+# src/atari7800 is guarded by BUILD_ATARI7800 the way src/nes is. The screen is
+# the shared MARIA engine (src/atari7800/maria.s); r2r/atari7800 gets fcs.bin
+# for the cart and fcs.a78 for MAME.
+CFLAGS_EXTRA_ATARI7800 = -DBUILD_ATARI7800
+
+# Atari 5200 cartridge.
+# src/atari5200 is guarded by BUILD_ATARI5200 the way src/atari7800 is. The
+# screen is the 8-bit client's ANTIC one (src/atari5200/antic.s), whose two
+# screens and player/missile memory take the top 4K of the console's RAM.
+# r2r/atari5200 gets fcs.bin, for the cart and for MAME alike.
+CFLAGS_EXTRA_ATARI5200 = -DBUILD_ATARI5200
+LDFLAGS_EXTRA_ATARI5200 = -Wl -D,__RESERVED_MEMORY__=0x1000
+
 # CoCo 3 build: same sources as CoCo 1/2, compiled with -DCOCO3 for the
 # standard 320x200x16 GIME mode. Framebuffer lives at $8000 via MMU
 # Task 1, so the program can occupy more low memory than the CoCo 1/2
 # build, but must still leave room for the C stack at the top of
 # $6000-$7FFF (cmoc's default stack lives ~$7Fxx).
+COCO_ORG = 1000
 ifeq ($(MAKE_COCO3),COCO3)
   CFLAGS_EXTRA_COCO += -DCOCO3
-  LDFLAGS_EXTRA_COCO += --org=1000 --limit=7000
+  LDFLAGS_EXTRA_COCO += --org=$(COCO_ORG) --limit=7000
   COCO_CHARSET_SRC := support/coco/pmode3_coco3.fnt
 else
   # CoCo 1/2 hires screen lives at $6000 (src/coco/hires.h). cmoc's
   # default org of $2800 would place code/data straight through it, so
   # the program corrupts itself the moment the screen is cleared.
-  LDFLAGS_EXTRA_COCO += --org=1000 --limit=6000
+  LDFLAGS_EXTRA_COCO += --org=$(COCO_ORG) --limit=6000
   COCO_CHARSET_SRC := support/coco/pmode3.fnt
 endif
+
+## Dragon specific flags (cmoc)
+CFLAGS_EXTRA_DRAGON = \
+	-Wno-assign-in-condition \
+	--no-relocate \
+	--intermediate \
+	-DDRAGON \
+	--dragon
+LDFLAGS_EXTRA_DRAGON = --limit=7b00 --org=$(COCO_ORG) --dragon
 
 # Stage the active charset .fnt in build/ so src/coco/charset.s can
 # INCLUDEBIN a fixed path; the source it's copied from depends on
@@ -133,7 +164,8 @@ build/charset_active.fnt: $(COCO_CHARSET_SRC) | build
 build:
 	mkdir -p $@
 
-build/coco/src/coco/charset.o: build/charset_active.fnt
+EXTRA_S_DEPS_COCO = build/charset_active.fnt
+EXTRA_S_DEPS_DRAGON = build/charset_active.fnt
 
 include mekkogx/toplevel-rules.mk
 
@@ -271,6 +303,79 @@ STEPS  ?=
 h89-smoke:
 	EXPECT="$(EXPECT)" SHOT="$(SHOT)" PROGRAM=$(PRODUCT_UPPER) \
 	  support/h89/smoke.sh $(H89_OS) $(CURDIR)/r2r/h89-$(H89_OS)/$(PRODUCT).h8d $(STEPS)
+
+# Atari 7800: headless smoke test in MAME's a7800 driver, against a live
+# fujinet-pc, the same shape as nes-smoke. The MAME tree needs
+# fujinet-firmware/pico/atari-7800/emu/apply.sh run against it once for
+# -cartslot fujinet to exist; FUJINET_TCP in the environment moves the BoIP
+# address. Snapshots, MAME's nvram and cfg land in A7800_OUT.
+#
+#   make atari7800-smoke                        print the screen
+#   make atari7800-smoke EXPECT="5 CARD STUD"   and assert on it
+#   make atari7800-smoke SCRIPT="fire,wait5,shot"  drive the controls first
+#       (fire b2 reset select pause up down left right select+pause, waitN,
+#        ?TEXT to wait for TEXT on screen, shot)
+#   make atari7800-smoke A7800_SYSTEM=a7800p    a PAL console
+#   make atari7800-play                         play it in a window, with sound
+A7800_MAME_DIR ?= $(HOME)/Workspace/mame-a7800
+A7800_MAME     ?= ./a7800
+A7800_ROMPATH  ?= $(HOME)/Workspace/mame/roms
+A7800_SYSTEM   ?= a7800
+A7800_SECS     ?= 300
+A7800_ROM      := $(CURDIR)/r2r/atari7800/$(PRODUCT).a78
+A7800_OUT      ?= $(CURDIR)/build/atari7800/mame
+A7800_ARGS      = $(A7800_SYSTEM) -rompath $(A7800_ROMPATH) -cartslot fujinet -cart $(A7800_ROM) \
+                  -snapshot_directory $(A7800_OUT)/snap -nvram_directory $(A7800_OUT)/nvram \
+                  -cfg_directory $(A7800_OUT)/cfg
+
+.PHONY: atari7800-smoke atari7800-play
+
+atari7800-smoke: $(A7800_ROM)
+	mkdir -p $(A7800_OUT)
+	cd $(A7800_MAME_DIR) && \
+	FCS_TILEMAP=$(CURDIR)/support/atari7800/tilemap.lua FCS_AT=$(AT) FCS_EXPECT="$(EXPECT)" \
+	FCS_SCRIPT="$(SCRIPT)" FCS_SETTLE=$(SETTLE) \
+	$(A7800_MAME) $(A7800_ARGS) -video none -sound none -nothrottle -seconds_to_run $(A7800_SECS) \
+	    -autoboot_script $(CURDIR)/support/atari7800/smoke.lua
+
+atari7800-play: $(A7800_ROM)
+	mkdir -p $(A7800_OUT)
+	cd $(A7800_MAME_DIR) && $(A7800_MAME) $(A7800_ARGS) -window
+
+# Atari 5200: headless smoke test in MAME's a5200 driver, against a live
+# fujinet-pc, the same shape as atari7800-smoke. The MAME tree needs
+# fujinet-firmware/pico/atari-5200/emu/apply.sh run against it once for
+# -cartslot fujinet to exist; FUJINET_TCP in the environment moves the BoIP
+# address. Snapshots, MAME's nvram and cfg land in A5200_OUT.
+#
+#   make atari5200-smoke                        print the screen
+#   make atari5200-smoke EXPECT="5 CARD STUD"   and assert on it
+#   make atari5200-smoke SCRIPT="fire,wait5,shot"  drive the controller first
+#       (fire b2 up down left right, k0-k9 star hash start pause reset, waitN,
+#        ?TEXT to wait for TEXT on screen, shot)
+#   make atari5200-play                         play it in a window, with sound
+A5200_MAME_DIR ?= $(HOME)/Workspace/mame-a5200
+A5200_MAME     ?= ./a5200
+A5200_ROMPATH  ?= $(HOME)/Workspace/mame/roms
+A5200_SECS     ?= 300
+A5200_ROM      := $(CURDIR)/r2r/atari5200/$(PRODUCT).bin
+A5200_OUT      ?= $(CURDIR)/build/atari5200/mame
+A5200_ARGS      = a5200 -rompath $(A5200_ROMPATH) -skip_gameinfo -cartslot fujinet \
+                  -cart $(A5200_ROM) -snapshot_directory $(A5200_OUT)/snap \
+                  -nvram_directory $(A5200_OUT)/nvram -cfg_directory $(A5200_OUT)/cfg
+
+.PHONY: atari5200-smoke atari5200-play
+
+atari5200-smoke: $(A5200_ROM)
+	mkdir -p $(A5200_OUT)
+	cd $(A5200_MAME_DIR) && \
+	FCS_AT=$(AT) FCS_EXPECT="$(EXPECT)" FCS_SCRIPT="$(SCRIPT)" FCS_SETTLE=$(SETTLE) \
+	$(A5200_MAME) $(A5200_ARGS) -video none -sound none -nothrottle -seconds_to_run $(A5200_SECS) \
+	    -autoboot_script $(CURDIR)/support/atari5200/smoke.lua
+
+atari5200-play: $(A5200_ROM)
+	mkdir -p $(A5200_OUT)
+	cd $(A5200_MAME_DIR) && $(A5200_MAME) $(A5200_ARGS) -window
 
 # CoCo targets:
 #   make coco        → CoCo 1/2 build

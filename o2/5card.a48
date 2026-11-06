@@ -1,148 +1,35 @@
 ; 5card.a48 -- 5 Card Stud for the Magnavox Odyssey 2 / Philips Videopac,
-; over FujiNet.
-;
-; @ericcarrgh's 5 Card Stud, ported to the hardest target in the family. The
-; VDC gives 12 single characters and 4 quad groups of 4, and quad characters
-; are drawn at DOUBLE pitch, so the whole screen is 28 glyphs. There is 64
-; bytes of internal RAM, 128 of external, one joystick and one button.
-;
-; So the presentation is not the C client's table with eight seats around it.
-; It is three lines and a spotlight:
-;
-;   y=8    P 1 2 5   $ 4 9 8      pot, and your purse
-;   y=40   AS TH 9D 4C KH          the spotlit player's hand, plus two markers
-;   y=72   F R Y     0 0 2 0      that player's name and bet
-;                                  ...or, on your turn, the move and countdown
-;
-; Stick up/down moves the spotlight over the seats (0 is always you, per the
-; server's rotation), so opponents' up-cards stay browsable while left/right
-; picks a move. One button, no modes.
-;
-; Bank layout, and why: CALL and JMP carry 11 address bits and take the twelfth
-; from the MB flag. AS emits the SEL MB before a cross-bank call and nothing
-; after it, so a routine above $7FF that calls one below it resumes with MB=0
-; and its next intra-bank jump lands 2K low, in the console BIOS -- silently.
-; The firmware tree avoids this by keeping all code below $800, which costs 1K
-; and which the browser cart already fills to $7EF. This game needs about 2.5K,
-; so it uses both banks and restores MB after every cross-bank call instead;
-; tools/checkmb.py fails the build when one is missing.
-;
-;   $400-$7FF  low bank:  vectors, fujilib, boot and name entry
-;   $800-$DFF  high bank: mailbox, net, render, table select and the game loop
-;   $E00-$E41  charmap; $E42-$ED3 strings, sound cues and URL
-;              literals, all through the one cm_get stub
-;   $ED4-$EFF  and $F02-$F1F: routines that did not fit in either bank
-;   $F00-$FFF  the mailbox page, written by the cartridge
+; over FujiNet. A protocol 2 (APPBANK) image: the fixed half (src/fixed.inc:
+; the display engine) and NPAGES pages, one assembly per page; build.sh sets
+; PAGE (and SPIKE, for the table's test pattern).
 
     cpu 8048
-    org 400h
     include "g7000.h"
-    include "vdctext.inc"
-    include "o2fuji.inc"
+    include "flags.inc"
+    include "equ.inc"
+    include "ram.inc"
+    include "page.inc"
+    include "fixed.inc"
 
-; Cartridge vectors (o2doc 6.1). Interrupts stay off -- everything here is
-; polled, and the vblank flag in the VDC status register is the only clock this
-; program needs.
-    jmp start                   ; $400 power-up / reset
-    jmp irqret                  ; $402 external IRQ
-    jmp irqret                  ; $404 timer IRQ
-    jmp irqret                  ; $406 vblank
-    jmp start                   ; $408 after the BIOS "select game" routine
-    jmp irqret                  ; $40A vblank continuation
-irqret:
-    retr
-
-start:
-    ; Force bank 0 before anything else, with a hard OUTL rather than the
-    ; read-modify-write everything else uses. Two reasons, and both are real:
-    ; out of reset P1 is $FF, so P16 (COPY) is HIGH and the cartridge write
-    ; strobe is gated off until something clears it; and o2em's -resetat path
-    ; restarts the 8048 without re-pointing `rom` (vmachine.c:186 calls
-    ; init_cpu(), which sets p1=$FF but never touches `rom`), so a reset taken
-    ; while another bank was live re-enters the cart still reading that bank.
-    ; These bytes are identical in all four banks, so whichever one serves the
-    ; fetch, this instruction lands us in bank 0 and the next fetch is right.
-    mov a,#P1_SEL_VDC0
-    outl p1,a
-    dis i
-    dis tcnti
-    call vdc_init
-    mov r1,#V_TEXT              ; the draw buffers start blank rather than
-    mov r2,#TEXTLEN+2*QUADLEN   ; showing whatever survived a reset
-    mov a,#(s_blank-0E00h)&0FFh
-    call str_fill
-    mov a,#P1VDC(1)             ; the splash lives in bank 1; it hands back to
-    jmp far_go                  ; bank 0's boot when it is done
-
-POLL_FRAMES equ 20              ; between /state polls, about a third of a second
-FAIL_FRAMES equ 60              ; back-off after a failed one
-SECOND      equ 60              ; frames per countdown tick
-
-; Resident: the same bytes at the same addresses in every cartridge bank.
-    include "fujilib.inc"
-
-; Present in every bank, but private to each -- the mailbox because both the
-; client and the name picker transact, cycle because every screen is a list.
-    include "mailbox.inc"
-    include "cycle.inc"
-
-; One screen per bank, and the split follows what each one needs underneath it.
-; The lobby and the game loop both sit on the whole network stack, and together
-; with it they did not fit in one 3K bank -- so they are banks 0 and 3, with a
-; copy of url.inc and net.inc each. That duplication is what a bank is for.
-;
-;   bank 0  the lobby        bank 2  the table view, all eight seats
-;   bank 1  boot and a name  bank 3  the game loop and the move UI
-    if BANK=0
-    include "url.inc"
-    include "net.inc"
-    include "lobby.inc"
-    elseif BANK=1
-    include "entry.inc"
-    elseif BANK=2
-    include "tableview.inc"
+    if SPIKE
+    if PAGE=0
+    include "spike.inc"
     else
-    include "url.inc"
-    include "net.inc"
-    include "render.inc"
-    include "game.inc"
+    PAGE_HEAD
+    PAGE_TAIL
     endif
-
-    include "tail.inc"
-    include "bankjmp.inc"
-
-    include "charmap.inc"
-
-; Strings, sound cues and URL literals all share page $E00 with the charmap and
-; are read through its one MOVP stub. The charmap is a 64-byte glyph-index table
-; rather than 192 bytes of finished pointers precisely so they fit -- which is
-; what handed page $D00 back to the code.
-    org 0E42h
-s_blank:    db 0                ; str_fill with nothing: a blank field
-s_title:    db "5 CARD STUD",0
-s_nocart:   db "NO CART",0
-s_name:     db "NAME",0
-s_pick:     db "TABLE",0
-s_err:      db "NO NET",0
-
-; Sound cues: three shift-register bytes, the control byte, then a hold in
-; frames. Control is volume (bits 0-3), noise (4), shift frequency (5),
-; recirculate (6) and enable (7) -- o2doc 4.10. With recirculate clear the
-; register plays once and stops itself, so a click needs no hold at all.
-cue_cursor: db 055h,0AAh,055h,0ACh,0
-cue_select: db 0FFh,000h,0FFh,0ACh,0
-cue_turn:   db 033h,033h,033h,0ECh,12
-
-; The URL literals, in the same page and through the same stub. They used to
-; have page $D00 and their own MOVP stub to themselves; halving the charmap made
-; room for them here, which handed all 256 bytes of $D00 back to the code.
-url_ncolon:   db "N:",0
-    include "endpoint.inc"      ; GENERATED by build.sh: url_endpoint
-url_tables:   db "tables?bin=1",0
-url_state:    db "state",0
-url_move:     db "move/",0
-url_qtable:   db "?table=",0
-url_aplayer:  db "&player=",0
-url_abin:     db "&bin=1",0
-
-    include "fujistub.inc"
+    elseif PAGE=0
+    include "p0.inc"
+    elseif PAGE=1
+    include "p1.inc"
+    elseif PAGE=2
+    include "p2.inc"
+    elseif PAGE=3
+    include "p3.inc"
+    elseif PAGE=4
+    include "p4.inc"
+    elseif PAGE=5
+    include "p5.inc"
+    elseif PAGE=6
+    include "p6.inc"
+    endif

@@ -51,18 +51,7 @@ SEL_MB1 = 0xF5
 # byte stream, so they are declared here instead, and anything new fails the
 # build until someone has decided which kind it is.
 ONEWAY = {
-    "bt_table":    "boot hands off to table_select and never returns",
-    "far_go":      "the bank trampoline; a jump is the whole point of it",
-    "bank_entry":  "the per-bank dispatcher, entered by far_go and never called",
-    "gp_hand":     "gl_paint leaves through the dispatcher, the same door the "
-                   "table view comes back through",
-    "tv_back":     "the table view hands control back to the game loop",
-    "tj_l":        "joining a table hands off to the game loop in bank 3",
-    "gl_flip":     "flipping the view leaves through gl_paint",
-    "gl_paint":    "the paint decision: to bank 2, or out through the dispatcher",
-    "be_sit":      "dispatcher: the lobby joined a table",
-    "be_loop":     "dispatcher: back into the poll loop",
-    "be_turn":     "dispatcher: back at the turn check",
+    "st_boot":     "the boot enters page 0 and never comes back",
 }
 
 # Bytes, then two or more spaces, then the source text. AS pads the byte column,
@@ -95,6 +84,9 @@ def check(path):
         src = m.group(3).strip()
         for i, b in enumerate(data):
             mem[addr + i] = b
+        # Data is not code: a table byte that happens to be $E5 is no SEL.
+        if re.match(r"(?:[a-z_][a-z_0-9]*:\s*)?d[bw]\b", src, re.I):
+            continue
         # A cross-bank call is the SEL AS emitted, then the call itself. An
         # in-bank call has no prefix and needs no restore.
         if len(data) == 3 and data[0] in (SEL_MB0, SEL_MB1) and data[1] in CALL_OPCODES:

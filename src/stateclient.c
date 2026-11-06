@@ -46,6 +46,53 @@ unsigned char apiCall(const char *path) {
 
 }
 
+#ifdef MIXED_CASE
+static void capitalize(char *s) {
+  if (s[0]>='a' && s[0]<='z')
+    s[0]-=32;
+}
+
+/* The server sends all text in lower case: the player's own name goes back to
+   how it was typed, bots ("<name> bot") get capitals, and the result line
+   follows suit. */
+static void fixText() {
+  static unsigned char p, n;
+  static char *s, *r;
+
+  for (p=0;p<state.validMoveCount && p<5;p++)
+    capitalize(state.validMoves[p].name);
+
+  for (p=0;p<state.playerCount && p<8;p++) {
+    capitalize(state.players[p].move);
+
+    s=state.players[p].name;
+    if (!s[0])
+      continue;
+
+    for (n=0;s[n] && (s[n]|0x20)==(playerName[n]|0x20);n++)
+      ;
+    if (!s[n] && !playerName[n]) {
+      strcpy(s,playerName);
+    } else {
+      n=(unsigned char)strlen(s);
+      if (n>4 && !strcmp(s+n-4," bot")) {
+        capitalize(s);
+        s[n-3]='B';
+      }
+    }
+
+    for (r=state.lastResult;*r;r++) {
+      if (r!=state.lastResult && r[-1]!=' ')
+        continue;
+      for (n=0;s[n] && (r[n]|0x20)==(s[n]|0x20);n++)
+        ;
+      if (!s[n] && (r[n]==' ' || !r[n]))
+        memcpy(r,s,n);
+    }
+  }
+}
+#endif
+
 unsigned char getStateFromServer()
 {
   if (requestedMove) {
@@ -56,5 +103,12 @@ unsigned char getStateFromServer()
     strcpy(tempBuffer, "state");
   }
 
+#ifdef MIXED_CASE
+  if (!apiCall(tempBuffer))
+    return 0;
+  fixText();
+  return 1;
+#else
   return apiCall(tempBuffer);
+#endif
 }
