@@ -103,6 +103,10 @@ void drawNamePurse() {
     // Print name, left or right justified based on direction
     y = playerY[i]-1;
     x = playerX[i];
+    // A right-side seat's name and purse end at the second column of its
+    // first card -- or, where a platform sets NAME_RIGHT_X, that many columns
+    // along (the H89's right edge). Not x+=1 by default: sccz80 compiles that
+    // longer than x++.
     if (playerDir[i]<0)
       x+=CARD_W-1;
 

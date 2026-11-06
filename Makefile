@@ -85,6 +85,34 @@ CFLAGS_EXTRA_SMS = -DBUILD_SMS
 LDFLAGS_EXTRA_SMS += -m -pragma-define:CRT_ENABLE_STDIO=0 \
   -pragma-define:CLIB_FOPEN_MAX=0
 
+# Heathkit H89 (z88dk +hdos / +cpm, the H89 FujiNet card on the 8255 at 0xD0),
+# with fujinet-lib's h89-support branch (checked out at ~/Workspace/fujinet-lib,
+# r2r/h89-{cpm,hdos}/ prebuilt). One tree, two programs: both builds share
+# src/h89 through the combos below, guarded by __H89__ (which both platform .mk
+# files define; the lib keys on it too). The game draws on the H19 terminal
+# with its graphics characters and escape codes; each r2r-post packs the
+# program onto a 100K H17 disk. Build with:
+#   make FUJINET_LIB=$HOME/Workspace/fujinet-lib PLATFORMS=h89-hdos h89-hdos
+#       r2r/h89-hdos/fcs.abs + fcs.h8d: MOUNT SY1: then RUN SY1:FCS.ABS
+#   make FUJINET_LIB=$HOME/Workspace/fujinet-lib PLATFORMS=h89-cpm h89-cpm
+#       r2r/h89-cpm/fcs.com + fcs.h8d: B:FCS
+PLATFORM_COMBOS += h89-cpm+=h89 h89-hdos+=h89
+CFLAGS_EXTRA_H89-CPM = -O3
+CFLAGS_EXTRA_H89-HDOS = -O3
+# No stdio or file handles: the game talks to the console itself
+# (src/h89/console.c). -m leaves the map beside the program so the end of BSS
+# can be checked against the OS's top of memory.
+H89_LDFLAGS = -m \
+  -pragma-define:CRT_ENABLE_STDIO=0 \
+  -pragma-define:CLIB_FOPEN_MAX=0 \
+  -pragma-define:CLIB_OPEN_MAX=0 \
+  -pragma-define:CLIB_EXIT_STACK_SIZE=0 \
+  -pragma-define:CRT_ENABLE_COMMANDLINE=0
+LDFLAGS_EXTRA_H89-CPM = $(H89_LDFLAGS)
+LDFLAGS_EXTRA_H89-HDOS = $(H89_LDFLAGS)
+H89_APPMAKE ?= z88dk-appmake
+PRODUCT_UPPER = FCS
+
 # Atari 7800 cartridge.
 # src/atari7800 is guarded by BUILD_ATARI7800 the way src/nes is. The screen is
 # the shared MARIA engine (src/atari7800/maria.s); r2r/atari7800 gets fcs.bin
@@ -149,6 +177,25 @@ include mekkogx/toplevel-rules.mk
 
 msdos/disk-post::
 	mcopy -t -i $(DISK) src/msdos/AUTOEXEC.BAT "::AUTOEXEC.BAT"
+
+# H89: pack the program onto a 100K H17 data disk.
+# HDOS: appmake +hdos wants the bare program (the .abs less its 8-byte
+# header: FF 00, load, length, entry) and the load address, and names the
+# file after -o -- hence the cd.
+h89-hdos/r2r-post::
+	tail -c +9 $(EXECUTABLE) > $(R2R_PD)/$(PRODUCT).bin
+	cd $(R2R_PD) && $(H89_APPMAKE) +hdos -b $(PRODUCT).bin \
+	  --org $$(od -An -tu2 -j2 -N2 $(PRODUCT).abs | tr -d ' ') -o $(PRODUCT_UPPER)
+	rm -f $(R2R_PD)/$(PRODUCT).bin
+	@echo "$(R2R_PD)/$(PRODUCT).h8d: MOUNT SY1: then RUN SY1:$(PRODUCT_UPPER).ABS"
+
+# CP/M: the hz89 format (H17, 40 tracks, 3 boot tracks), then mark the empty
+# directory entries appmake leaves zeroed as erased (support/h89).
+h89-cpm/r2r-post::
+	cd $(R2R_PD) && $(H89_APPMAKE) +cpmdisk -f hz89 --container raw --no-com-file \
+	  -b $(PRODUCT).com -o $(PRODUCT).h8d
+	python3 -I support/h89/cpm-dir-fixup.py $(R2R_PD)/$(PRODUCT).h8d
+	@echo "$(R2R_PD)/$(PRODUCT).h8d: B:$(PRODUCT_UPPER)"
 
 # ColecoVision: headless smoke test in MAME's coleco driver, against a live
 # fujinet-pc (the cartridge device dials its BoIP listener on 127.0.0.1:9995).
@@ -236,6 +283,26 @@ sms-smoke: $(SMS_ROM)
 
 sms-play: $(SMS_ROM)
 	cd $(MAME_DIR) && ./mame sms1 -slot fujinet -cart $(SMS_ROM) -window
+
+# Heathkit H89: headless smoke test in FujiNet Go H89's session runner (the
+# emulated H89 and H19 with the in-process FujiNet; ~/Workspace/
+# fujinet-go-h89-desktop, built), booting 64K CP/M or HDOS 2.0 with the
+# game's disk in drive 2. It waits for EXPECT and prints the screen as text;
+# STEPS are more session runner steps. --type drops control characters, so
+# ESC is --key f1. See support/h89/smoke.sh.
+#
+#   make h89-smoke                                   CP/M, the title screen
+#   make h89-smoke H89_OS=hdos                       the same under HDOS
+#   make h89-smoke EXPECT="PLAYERS" STEPS="--wait 6000"
+#   make h89-smoke STEPS="--type '\r' --wait 30000" SHOT=/tmp/table.ppm
+H89_OS ?= cpm
+STEPS  ?=
+
+.PHONY: h89-smoke
+
+h89-smoke:
+	EXPECT="$(EXPECT)" SHOT="$(SHOT)" PROGRAM=$(PRODUCT_UPPER) \
+	  support/h89/smoke.sh $(H89_OS) $(CURDIR)/r2r/h89-$(H89_OS)/$(PRODUCT).h8d $(STEPS)
 
 # Atari 7800: headless smoke test in MAME's a7800 driver, against a live
 # fujinet-pc, the same shape as nes-smoke. The MAME tree needs

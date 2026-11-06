@@ -85,6 +85,10 @@
 #define _Packed
 #endif
 
+#ifdef __H89__
+#define _Packed
+#endif
+
 // Screen text: all caps, or real text on platforms with lower case
 #ifdef MIXED_CASE
 #define TXT(caps, mixed) mixed
