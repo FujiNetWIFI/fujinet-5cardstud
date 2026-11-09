@@ -13,12 +13,11 @@
 #include <stdlib.h>
 #include <time.h>
 #include <fujinet-fuji.h>
-#include <fujinet-nes.h>
 #include "vars.h"
 #include "../platform-specific/graphics.h"
 #include "../platform-specific/util.h"
 
-// The firmware's WRITE HOST SLOTS expects all 8 slots.
+// READ HOST SLOTS returns all 8 slots.
 #define FUJI_HOST_SLOT_COUNT 8
 #define LOBBY_DEVICE_SLOT 0
 #define LOBBY_MODE_READ   1
@@ -80,20 +79,20 @@ static bool mountLobby(uint8_t slot)
   if (!fuji_set_device_filename(LOBBY_MODE_READ, slot, LOBBY_DEVICE_SLOT,
                                 (char *) lobbyPath))
     return false;
-  // Only starts the transfer. The image is pushed to the cartridge
-  // asynchronously, after this has already been answered.
+  // Returns once the whole image is on the cart.
   return fuji_mount_disk_image(LOBBY_DEVICE_SLOT, LOBBY_MODE_READ) != 0;
 }
 
 void quit(void)
 {
   // Not `state`: src/misc.h defines that as a macro for the game state.
-  uint8_t bootState, slot, pct = 0xFF;
+  uint8_t romState, slot, pct = 0xFF;
   char pctText[5];
+  FujiUserRomProgress progress;
 
   drawStatusText("LOADING LOBBY...");
 
-  if (!fuji_nes_present())
+  if (fuji_user_rom_status(&progress) == FUJI_USER_ROM_NO_CART)
   {
     drawStatusText("NO FUJINET CARTRIDGE");
     return;
@@ -113,29 +112,27 @@ void quit(void)
   }
 
   // Watch the cartridge's own progress counter rather than guessing a delay.
-  for (;;)
+  while ((romState = fuji_user_rom_status(&progress)) == FUJI_USER_ROM_LOADING)
   {
-    bootState = fuji_nes_boot_state();
-    if (bootState == FUJI_NES_BOOT_READY)
-      break;
-    if (bootState == FUJI_NES_BOOT_FAILED)
+    if (progress.percent != pct)
     {
-      drawStatusText("LOBBY LOAD FAILED");
-      return;
-    }
-    if (fuji_nes_boot_percent() != pct)
-    {
-      pct = fuji_nes_boot_percent();
+      pct = progress.percent;
       itoa(pct, pctText, 10);
       strcat(pctText, "%");
       drawStatusTextAt(18, pctText);
     }
   }
 
+  if (romState != FUJI_USER_ROM_READY)
+  {
+    drawStatusText("LOBBY LOAD FAILED");
+    return;
+  }
+
   // Stop the firmware serving CONFIG at boot, then hand the console to the
   // cartridge's loader ROM. It does not return.
   fuji_set_boot_config(0);
-  fuji_nes_boot();
+  fuji_enable_user_rom();
 }
 
 #endif /* BUILD_NES */

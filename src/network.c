@@ -1,7 +1,7 @@
 #include <fujinet-platform.h>
 
-// c64 keeps its own, with the USE_EMULATOR path
-#ifndef FUJI_PLATFORM_C64
+// c64 keeps its own, with the USE_EMULATOR path; ColecoVision its own reply-window read
+#if !defined(FUJI_PLATFORM_C64) && !defined(FUJI_PLATFORM_COLECO)
 
 #include <fujinet-network.h>
 #include "platform-specific/network.h"
@@ -19,4 +19,4 @@ uint8_t getResponse(const char *devicespec, void *buf, uint16_t len)
   return count > 0;
 }
 
-#endif /* FUJI_PLATFORM_C64 */
+#endif
