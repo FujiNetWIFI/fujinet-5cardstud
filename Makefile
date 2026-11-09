@@ -1,6 +1,11 @@
 PRODUCT = fcs
-#plus4 also works, but needs fujinet-lib
-PLATFORMS = apple2 c64 coco msdos adam msxrom model2
+PLATFORMS = apple2 c64 coco msdos adam msxrom model2 h89-cpm h89-hdos nes coleco
+# Cannot currently build against fujinet-lib main.
+#PLATFORMS += atari5200 atari7800 sms plus4
+# Needs getPlatformKey() and platformNameEntry() in src/lynx.
+#PLATFORMS += lynx
+# Builds, but untested: no Dragon DWLOAD ROM for xroar yet.
+#PLATFORMS += dragon
 
 # You can run 'make <platform>' to build for a specific platform,
 # or 'make <platform>/<target>' for a platform-specific target.
@@ -47,10 +52,7 @@ LDFLAGS_EXTRA_MSX += --generic-console -pragma-redirect:CRT_FONT=_font
 CFLAGS_EXTRA_ADAM = -D__ADAM__
 LDFLAGS_EXTRA_ADAM += --generic-console -pragma-redirect:CRT_FONT=_font
 
-# ColecoVision cartridge, with the coleco target now in fujinet-lib itself
-# (FujiNetWIFI/fujinet-lib#281, branch add-coleco):
-#   make FUJINET_LIB=<that lib's checkout> PLATFORMS=coleco coleco
-# z88dk puts -D__COLECO__ in the target-wide OPTIONS
+# ColecoVision cartridge. z88dk puts -D__COLECO__ in the target-wide OPTIONS
 # line, so the Adam subtype defines it too -- __COLECO__ alone does not mean
 # ColecoVision. src/coleco is therefore guarded by BUILD_COLECO, the same way
 # src/msx is, and src/platform-specific/input.h can keep including every
@@ -85,17 +87,13 @@ CFLAGS_EXTRA_SMS = -DBUILD_SMS
 LDFLAGS_EXTRA_SMS += -m -pragma-define:CRT_ENABLE_STDIO=0 \
   -pragma-define:CLIB_FOPEN_MAX=0
 
-# Heathkit H89 (z88dk +hdos / +cpm, the H89 FujiNet card on the 8255 at 0xD0),
-# with fujinet-lib's h89-support branch (checked out at ~/Workspace/fujinet-lib,
-# r2r/h89-{cpm,hdos}/ prebuilt). One tree, two programs: both builds share
-# src/h89 through the combos below, guarded by __H89__ (which both platform .mk
-# files define; the lib keys on it too). The game draws on the H19 terminal
-# with its graphics characters and escape codes; each r2r-post packs the
-# program onto a 100K H17 disk. Build with:
-#   make FUJINET_LIB=$HOME/Workspace/fujinet-lib PLATFORMS=h89-hdos h89-hdos
-#       r2r/h89-hdos/fcs.abs + fcs.h8d: MOUNT SY1: then RUN SY1:FCS.ABS
-#   make FUJINET_LIB=$HOME/Workspace/fujinet-lib PLATFORMS=h89-cpm h89-cpm
-#       r2r/h89-cpm/fcs.com + fcs.h8d: B:FCS
+# Heathkit H89 (z88dk +hdos / +cpm, the H89 FujiNet card on the 8255 at 0xD0).
+# Both builds share src/h89 through the combos below, guarded by __H89__ (which
+# both platform .mk files define; the lib keys on it too). The game draws on
+# the H19 terminal with its graphics characters and escape codes; each
+# r2r-post packs the program onto a 100K H17 disk:
+#   r2r/h89-hdos/fcs.h8d: MOUNT SY1: then RUN SY1:FCS.ABS
+#   r2r/h89-cpm/fcs.h8d: B:FCS
 PLATFORM_COMBOS += h89-cpm+=h89 h89-hdos+=h89
 CFLAGS_EXTRA_H89-CPM = -O3
 CFLAGS_EXTRA_H89-HDOS = -O3
@@ -153,6 +151,9 @@ CFLAGS_EXTRA_DRAGON = \
 	-DDRAGON \
 	--dragon
 LDFLAGS_EXTRA_DRAGON = --limit=7b00 --org=$(COCO_ORG) --dragon
+
+# Otherwise the charset rule below is the default goal.
+.DEFAULT_GOAL := all
 
 # Stage the active charset .fnt in build/ so src/coco/charset.s can
 # INCLUDEBIN a fixed path; the source it's copied from depends on
