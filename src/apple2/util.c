@@ -3,6 +3,7 @@
 #include<peekpoke.h>
 #include<stdlib.h>
 #include<stdint.h>
+#include <fujinet-fuji.h>
 /*
  Screen related variables
 */
@@ -16,7 +17,7 @@ char playerDirMaster[] = { 1,1,1,1,1,-1,-1,-1 };
 char playerBetXMaster[] = { 1,10,10,10,3,-8,-8,-8 };
 char playerBetYMaster[] = { -2, -2, 1,4,4,4,1,-2 };
 
-// Simple hard coded arrangment of players around the table based on player count.
+// Simple hard coded arrangement of players around the table based on player count.
 // These refer to index positions in the Master arrays above
 // Downside is new players will cause existing player positions to move.
 
@@ -40,9 +41,12 @@ int getTime() {
 }
 
 void quit() {
-  // Possible to revert screen to boot normals
   resetGraphics();
-  exit(0);
+  fuji_set_boot_mode(FUJI_BOOT_MODE_LOBBY);
+  // ROM in, then spoil the reset vector's checksum so the reset is a cold boot
+  __asm__ ("bit $c082");
+  __asm__ ("dec $03f4");
+  __asm__ ("jmp ($fffc)");
 }
 
 #endif /* __APPLE2__ */

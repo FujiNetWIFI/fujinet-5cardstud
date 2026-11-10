@@ -64,8 +64,8 @@ static bool sameHost(const char *a, const char *b)
 static void mountLobby(void)
 {
   static uint8_t i, slot;
-  static const char host[] = "ec.tnfs.io";
-  static const char filename[] = "adam/lobby.ddp";
+  static const char host[] = "tnfs.fujinet.online";
+  static const char filename[] = "ADAM/lobby.ddp";
 
   // Read current list of hosts from FujiNet
   fuji_get_host_slots(host_slots, FUJI_HOST_SLOT_COUNT);

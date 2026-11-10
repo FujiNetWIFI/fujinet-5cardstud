@@ -527,11 +527,63 @@ void initGraphics()
 
 }
 
+/* Not the VGA retrace at 0x3DA: QEMU toggles that bit on every read. */
+unsigned int pitTicksPerMs = 0;
+
+unsigned int pitRead(void)
+{
+    unsigned int t;
+
+    outp(0x43, 0x00);                /* latch counter 0 */
+    t  = (unsigned int)inp(0x40);
+    t |= (unsigned int)inp(0x40) << 8;
+    return t;
+}
+
+/* Counter 0 drops by two per clock in mode 3 (real BIOSes), one in mode 2
+ * (QEMU), so it is measured against the 18.2Hz BIOS tick at 0040:006C. */
+void calibratePit(void)
+{
+    volatile unsigned long far *biosTick;
+    unsigned long units, mark;
+    unsigned int prev, now, perMs;
+
+    biosTick = (volatile unsigned long far *)MK_FP(0x40, 0x6C);
+
+    mark = *biosTick;
+    while (*biosTick == mark)        /* start on a fresh tick */
+        ;
+
+    mark = *biosTick;
+    units = 0;
+    prev = pitRead();
+    while (*biosTick == mark) {
+        now = pitRead();
+        units += (unsigned int)(prev - now);
+        prev = now;
+    }
+
+    perMs = (unsigned int)((units * 1000UL) / 54925UL);
+
+    /* ~1193 in mode 2, ~2386 in mode 3; anything else means it went wrong */
+    pitTicksPerMs = (perMs >= 900 && perMs <= 3000) ? perMs : 1193;
+}
+
 void waitvsync()
 {
-    // Wait until we are in vsync
-    while (! (inp(0x3DA) & 0x08));
-    while (inp(0x3DA) & 0x08);
+    static unsigned int last_pit = 0;
+    unsigned int now, elapsed, frame;
+
+    if (!pitTicksPerMs)
+        calibratePit();
+
+    frame = (unsigned int)(((unsigned long)pitTicksPerMs * 50UL) / 3UL);  /* 16.67ms */
+
+    do {
+        now = pitRead();
+        elapsed = (unsigned int)(last_pit - now);
+    } while (elapsed < frame);
+    last_pit = now;
 }
 
 uint8_t cycleNextColor()
